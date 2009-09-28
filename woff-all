@@ -1,0 +1,28 @@
+#! /usr/bin/env python
+
+doc = """woff-all [options] fontpath1 fontpath2"
+
+This tool runs woof-validate, woff-info, woff-proof
+and woff-css in their default modes. The only allowed
+argument is -d for specifying the output directory.
+Refer to the other tools for details about what
+they do."""
+
+import sys
+from woffTools.tools import validate
+from woffTools.tools import info
+from woffTools.tools import proof
+from woffTools.tools import css
+
+if len(sys.argv) > 1 and sys.argv[1] == "-h":
+    print doc
+    sys.exit()
+
+for i in sys.argv:
+    if i.startswith("-") and not i == "-d":
+        print "Only the -d argument may be used with this tool."
+        sys.exit()
+
+modules = [validate, info, proof, css]
+for module in modules:
+    module.main()
