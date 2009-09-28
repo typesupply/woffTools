@@ -1757,9 +1757,5 @@ def main():
             fontPath = fontPath.decode("utf-8")
             testFont(fontPath, options)
 
-def runDocTests():
-    import doctest
-    doctest.testmod(verbose=False)
-
 if __name__ == "__main__":
     main()
