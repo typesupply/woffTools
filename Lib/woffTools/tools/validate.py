@@ -25,7 +25,7 @@ from xml.etree import ElementTree
 from xml.parsers.expat import ExpatError
 from fontTools.ttLib.sfnt import getSearchRange, SFNTDirectoryEntry, \
     sfntDirectoryFormat, sfntDirectorySize, sfntDirectoryEntryFormat, sfntDirectoryEntrySize
-from woffTools.tools.support import startHTML, finishHTML
+from woffTools.tools.support import startHTML, finishHTML, findUniqueFileName
 
 # ------
 # Header
@@ -1610,6 +1610,7 @@ def validateFont(path, options, writeFile=True):
             directory = os.path.dirname(path)
         # write the file
         reportPath = os.path.join(directory, fileName)
+        reportPath = findUniqueFileName(reportPath)
         f = open(reportPath, "wb")
         f.write(report)
         f.close()
