@@ -14,6 +14,28 @@ TO DO:
 - show checksums as hex
 """
 
+# import test
+
+importErrors = []
+try:
+    import numpy
+except:
+    importErrors.append("numpy")
+try:
+    import fontTools
+except ImportError:
+    importErrors.append("fontTools")
+try:
+    import woffTools
+except ImportError:
+    importErrors.append("woffTools")
+
+if importErrors:
+    import sys
+    print "Could not import needed module(s):", ", ".join(importErrors)
+    sys.exit()
+
+# import
 
 import os
 import sys
