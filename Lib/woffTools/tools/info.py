@@ -81,7 +81,10 @@ def writeSFNTInfo(font, writer):
         writer.endtag("th")
     writer.endtag("tr")
     for tag, entry in sorted(font.reader.tables.items()):
-        writer.begintag("tr")
+        if entry.compLength == entry.origLength:
+            writer.begintag("tr", c_l_a_s_s="uncompressed")
+        else:
+            writer.begintag("tr")
         for attr in columns:
             v = getattr(entry, attr)
             if attr == "origChecksum":

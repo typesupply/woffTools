@@ -172,6 +172,10 @@ defaultCSS = """
             text-align: left
         }
 
+        table.sfntTableData tr.uncompressed {
+            background-color: #ffc3af;
+        }
+
         table.sfntTableData td {
             width: 20%;
             padding: 5px 0px 5px 0px;
