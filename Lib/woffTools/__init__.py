@@ -57,8 +57,7 @@ class WOFFFont(TTFont):
         self.flavor = flavor
         self.majorVersion = 0
         self.minorVersion = 0
-        self.metadata = None
-        self.privateData = None
+        self._metadata = None
         self._tableOrder = None
 
         if file is not None:
@@ -70,7 +69,7 @@ class WOFFFont(TTFont):
             self.minorVersion = self.reader.minorVersion
             self._tableOrder = self.reader.keys()
         else:
-            self.metadata = ElementTree.Element("metadata", version="1.0")
+            self._metadata = ElementTree.Element("metadata", version="1.0")
             self.privateData = None
 
     def __getattr__(self, attr):
@@ -78,25 +77,25 @@ class WOFFFont(TTFont):
             raise AttributeError(attr)
         # metadata
         if attr == "metadata":
-            if self.metadata is not None:
-                return self.metadata
+            if self._metadata is not None:
+                return self._metadata
             if self.reader is not None:
                 text = self.reader.metadata
                 if text:
                     metadata = ElementTree.fromstring(text)
                 else:
                     metadata = ElementTree.Element("metadata", version="1.0")
-                self.metadata = metadata
-                return self.metadata
+                self._metadata = metadata
+                return self._metadata
             return None
         # private data
         elif attr == "privateData":
-            if self.privateData is not None:
-                return self.privateData
-            if self.reader is not None:
-                self.privateData = self.reader.privateData
-                return self.privateData
-            return None
+            if not hasattr(self, "privateData"):
+                privateData = None
+                if self.reader is not None:
+                    privateData = self.reader.privateData
+                self.privateData = privateData
+            return self.privateData
         # fallback to None
         return None
 
@@ -126,7 +125,7 @@ class WOFFFont(TTFont):
         """
         self._tableOrder = order
 
-    def save(self, file, compressionLevel=9, recompressTables=False, reorderTables=True, recalculateHeadCheckSum=True):
+    def save(self, file, compressionLevel=9, recompressTables=False, reorderTables=True, recalculateHeadChecksum=True):
         """
         Save a WOFF into file a file object specifified by the
         file argument.. Optionally, file can be a path and a
@@ -149,7 +148,7 @@ class WOFFFont(TTFont):
         If you change any of the SFNT data or reorder the tables,
         the head table checkSumAdjustment must be recalculated.
         If you are not changing any of the SFNT data, you can set
-        recalculateHeadCheckSum to False to prevent the recalculation.
+        recalculateHeadChecksum to False to prevent the recalculation.
         This must be set to False if the font contains a DSIG table.
         """
         # if DSIG is to be written, the table order
@@ -162,7 +161,7 @@ class WOFFFont(TTFont):
             raise WOFFLibError("A complete table order must be supplied when saving a font with a 'DSIG' table.")
         if "DSIG" in tags and reorderTables:
             raise WOFFLibError("Tables can not be reordered when a 'DSIG' table is in the font. Set reorderTables to False.")
-        if "DSIG" in tags and recalculateHeadCheckSum:
+        if "DSIG" in tags and recalculateHeadChecksum:
             raise WOFFLibError("The 'head' table checkSumAdjustment can not be recalculated when a 'DSIG' table is in the font.")
         # sort the tags if necessary
         if reorderTables:
@@ -178,12 +177,12 @@ class WOFFFont(TTFont):
         numTables = len(tags)
         writer = WOFFWriter(file, numTables, flavor=self.flavor,
             majorVersion=self.majorVersion, minorVersion=self.minorVersion,
-            compressionLevel=compressionLevel, recalculateHeadCheckSum=recalculateHeadCheckSum,
+            compressionLevel=compressionLevel, recalculateHeadChecksum=recalculateHeadChecksum,
             verbose=self.verbose)
         for tag in tags:
             origData = None
             origLength = None
-            origCheckSum = None
+            origChecksum = None
             compLength = None
             # table is loaded
             if self.isLoaded(tag):
@@ -195,9 +194,9 @@ class WOFFFont(TTFont):
                 else:
                     if self.verbose:
                         debugmsg("Reading '%s' table from disk" % tag)
-                    origData, origLength, origCheckSum, compLength = self.reader.getCompressedTableData(tag)
+                    origData, origLength, origChecksum, compLength = self.reader.getCompressedTableData(tag)
             # add to writer
-            writer.setTable(tag, origData, origLength=origLength, origCheckSum=origCheckSum, compLength=compLength)
+            writer.setTable(tag, origData, origLength=origLength, origChecksum=origChecksum, compLength=compLength)
         # write the metadata
         metadata = None
         metaOrigLength = None
@@ -303,8 +302,8 @@ class WOFFReader(object):
         if self.checkChecksums:
             checksum = calcTableChecksum(tag, data)
             if self.checkChecksums > 1:
-                assert checksum == entry.origCheckSum, "bad checksum for '%s' table" % tag
-            elif checksum != entry.origCheckSum:
+                assert checksum == entry.origChecksum, "bad checksum for '%s' table" % tag
+            elif checksum != entry.origChecksum:
                 print "bad checksum for '%s' table" % tag
             print
         return data
@@ -313,7 +312,7 @@ class WOFFReader(object):
         entry = self.tables[tag]
         self.file.seek(entry.offset)
         data = self.file.read(entry.compLength)
-        return data, entry.origLength, entry.origCheckSum, entry.compLength
+        return data, entry.origLength, entry.origChecksum, entry.compLength
 
     def getCompressedMetadata(self):
         self.file.seek(self.metaOffset)
@@ -332,7 +331,6 @@ class WOFFReader(object):
             if self.metaLength:
                 data = zlib.decompress(data)
                 assert len(data) == self.metaOrigLength
-                data = unicode(data, "utf-8")
             return data
 
     def __delitem__(self, tag):
@@ -347,7 +345,7 @@ class WOFFWriter(object):
 
     def __init__(self, file, numTables, flavor="\000\001\000\000",
             majorVersion=0, minorVersion=0, compressionLevel=9,
-            recalculateHeadCheckSum=True,
+            recalculateHeadChecksum=True,
             verbose=False):
         self.signature = "wOFF"
         self.flavor = flavor
@@ -365,7 +363,7 @@ class WOFFWriter(object):
 
         self.file = file
         self.compressionLevel = compressionLevel
-        self.recalculateHeadCheckSum = recalculateHeadCheckSum
+        self.recalculateHeadChecksum = recalculateHeadChecksum
         self.verbose = verbose
 
         # the data is held to facilitate the
@@ -379,17 +377,17 @@ class WOFFWriter(object):
     def _tableOrder(self):
         return [entry.tag for index, entry, data in sorted(self.tables.values())]
 
-    def setTable(self, tag, data, origLength=None, origCheckSum=None, compLength=None):
+    def setTable(self, tag, data, origLength=None, origChecksum=None, compLength=None):
         # don't compress the head if the checkSumAdjustment needs to be recalculated
         # the compression will be handled later.
-        if self.recalculateHeadCheckSum and tag == "head":
+        if self.recalculateHeadChecksum and tag == "head":
             # decompress
             if compLength is not None:
                 data = zlib.decompress(data)
             entry = self._prepTable(tag, data, origLength=len(data), entryOnly=True)
         # compress
         else:
-            entry, data = self._prepTable(tag, data=data, origLength=origLength, origCheckSum=origCheckSum, compLength=compLength)
+            entry, data = self._prepTable(tag, data=data, origLength=origLength, origChecksum=origChecksum, compLength=compLength)
         # store
         self.tables[tag] = (len(self.tables), entry, data)
 
@@ -421,8 +419,8 @@ class WOFFWriter(object):
         if self.numTables != len(self.tables):
             raise WOFFLibError("wrong number of tables; expected %d, found %d" % (self.numTables, len(self.tables)))
         # first, handle the checkSumAdjustment
-        if self.recalculateHeadCheckSum and "head" in self.tables:
-            self._handleHeadCheckSum()
+        if self.recalculateHeadChecksum and "head" in self.tables:
+            self._handleHeadChecksum()
         # write the header
         header = sstruct.pack(woffHeaderFormat, self)
         self.file.seek(0)
@@ -456,11 +454,11 @@ class WOFFWriter(object):
 
     # sfnt support
 
-    def _prepTable(self, tag, data, origLength=None, origCheckSum=None, compLength=None, entryOnly=False):
+    def _prepTable(self, tag, data, origLength=None, origChecksum=None, compLength=None, entryOnly=False):
         # skip data prep
         if entryOnly:
             origLength = origLength
-            origCheckSum = calcTableChecksum(tag, data)
+            origChecksum = calcTableChecksum(tag, data)
             compLength = 0
         # prep the data
         else:
@@ -468,7 +466,7 @@ class WOFFWriter(object):
             if compLength is None:
                 origData = data
                 origLength = len(origData)
-                origCheckSum = calcTableChecksum(tag, data)
+                origChecksum = calcTableChecksum(tag, data)
                 if self.verbose:
                     debugmsg("compressing '%s' table" % tag)
                 compData = zlib.compress(origData, self.compressionLevel)
@@ -483,14 +481,14 @@ class WOFFWriter(object):
         entry.tag = tag
         entry.offset = 0
         entry.origLength = origLength
-        entry.origCheckSum = origCheckSum
+        entry.origChecksum = origChecksum
         entry.compLength = compLength
         # return
         if entryOnly:
             return entry
         return entry, data
 
-    def _handleHeadCheckSum(self):
+    def _handleHeadChecksum(self):
         if self.verbose:
             debugmsg("updating head checkSumAdjustment")
         # build the sfnt header
@@ -509,7 +507,7 @@ class WOFFWriter(object):
         for (index, entry, data) in sorted(self.tables.values()):
             sfntEntry = SFNTDirectoryEntry()
             sfntEntry.tag = entry.tag
-            sfntEntry.checkSum = entry.origCheckSum
+            sfntEntry.checkSum = entry.origChecksum
             sfntEntry.offset = offset
             sfntEntry.length = entry.origLength
             sfntEntries[entry.tag] = sfntEntry
@@ -533,7 +531,7 @@ class WOFFWriter(object):
         # compress the data
         newEntry, data = self._prepTable("head", data)
         # update the entry data
-        assert entry.origCheckSum == newEntry.origCheckSum
+        assert entry.origChecksum == newEntry.origChecksum
         entry.origLength = newEntry.origLength
         entry.compLength = newEntry.compLength
         # store
@@ -610,7 +608,7 @@ woffDirectoryEntryFormat = """
     offset:         l
     compLength:     l
     origLength:     l
-    origCheckSum:   l
+    origChecksum:   l
 """
 woffDirectoryEntrySize = sstruct.calcsize(woffDirectoryEntryFormat)
 
