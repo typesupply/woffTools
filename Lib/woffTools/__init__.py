@@ -12,7 +12,8 @@ import zlib
 import struct
 import sstruct
 import numpy
-from xmlWriter import XMLWriter
+from cStringIO import StringIO
+from xml.etree import ElementTree
 from fontTools.ttLib import TTFont, debugmsg, sortedTagList
 from fontTools.ttLib.sfnt import getSearchRange, calcChecksum, SFNTDirectoryEntry, \
     sfntDirectoryFormat, sfntDirectorySize, sfntDirectoryEntryFormat, sfntDirectoryEntrySize
@@ -31,11 +32,11 @@ class WOFFFont(TTFont):
     refer to the TTFont documentation.
 
     This object has two special attributes: metadata and privateData.
-    The metadata attribute returns a Metadata object representing
-    the metadata stored in the font. To set new metadata in the font,
-    you must use this object. The privateData attribute returns the
-    private data stored in the font. To set private data, set a string
-    to font.privateData.
+    The metadata attribute returns an ElementTree Element object
+    representing the metadata stored in the font. To set new metadata
+    in the font, you must use this object. The privateData attribute
+    returns the private data stored in the font. To set private data,
+    set a string to font.privateData.
     """
 
     def __init__(self, file=None, flavor="\000\001\000\000",
@@ -69,7 +70,7 @@ class WOFFFont(TTFont):
             self.minorVersion = self.reader.minorVersion
             self._tableOrder = self.reader.keys()
         else:
-            self.metadata = Metadata()
+            self.metadata = ElementTree.Element("metadata", version="1.0")
             self.privateData = None
 
     def __getattr__(self, attr):
@@ -81,9 +82,10 @@ class WOFFFont(TTFont):
                 return self.metadata
             if self.reader is not None:
                 text = self.reader.metadata
-                metadata = Metadata()
                 if text:
-                    MetadataParser(metadata, text)
+                    metadata = ElementTree.fromstring(text)
+                else:
+                    metadata = ElementTree.Element("metadata", version="1.0")
                 self.metadata = metadata
                 return self.metadata
             return None
@@ -201,7 +203,11 @@ class WOFFFont(TTFont):
         metaOrigLength = None
         metaLength = None
         if hasattr(self, "metadata"):
-            metadata = self.metadata.compile(compact=True)
+            tree = ElementTree.ElementTree(self.metadata)
+            f = StringIO()
+            tree.write(f, encoding="utf-8")
+            metadata = f.getvalue()
+            del f
         elif self.reader is not None:
             if recompress:
                 metadata = self.reader.metadata
@@ -624,194 +630,6 @@ class WOFFDirectoryEntry(object):
             return "<WOFFDirectoryEntry '%s' at %x>" % (self.tag, id(self))
         else:
             return "<WOFFDirectoryEntry at %x>" % id(self)
-
-# --------
-# Metadata
-# --------
-
-class Metadata(object):
-
-    """
-    The WOFF metadata object.
-
-    This object has an elements attribute that allows you to
-    iterate over and modify existing metadata elements. The
-    elements object is a standard list.
-
-    To add a new metadata element, you can create one manually
-    by appending a new MetaDataElemet to the elements list.
-    Or, you can use the newElement convenience method.
-    """
-
-    def __init__(self, version="1.0"):
-        self.version = version
-        self.elements = []
-
-    def newElement(self, tag, text=None, **kwargs):
-        """
-        Create a new element and add it to the elements list.
-        tag must be supplied. text is optional. Additional
-        keyword arguments may also be passed. These will be
-        assigned as attributes of the new element.
-        """
-        element = MetadataElement()
-        element.tag = tag
-        element.text = text
-        element.attributes.update(kwargs)
-        self.elements.append(element)
-        return element
-
-    def compile(self, compact=True):
-        """
-        Compile the metadata into a string of XML. If compact is
-        True, the XML will not have line breaks or leading whitespace.
-        """
-        if not self.elements:
-            return ""
-        if compact:
-            indent = ""
-        else:
-            indent = "\t"
-        file = _MetadataFileProxy()
-        writer = XMLWriter(file, indentwhite=indent, encoding="UTF-8")
-        writer.begintag("metadata", version=self.version)
-        if not compact:
-            writer.newline()
-        for element in self.elements:
-            element.compile(writer=writer, compact=compact)
-            if not compact:
-                writer.newline()
-        writer.endtag("metadata")
-        text = file.getvalue()
-        return text
-
-
-class MetadataElement(object):
-
-    """
-    A metadata element object.
-
-    This object has an subelements attribute that allows you to
-    iterate over and modify existing subelements. The subelements
-    object is a standard list.
-
-    To add a new metadata element, you can create one manually
-    by appending a new MetaDataElemet to the subelements list.
-    Or, you can use the newElement convenience method.
-
-    This object has the following additional attributes:
-    tag - The element tag.
-    text - The element text.
-    attributes - The element attributes. This is a dictionary.
-    """
-
-    def __init__(self):
-        self.tag = None
-        self.text = None
-        self.attributes = {}
-        self.subelements = []
-
-    def newElement(self, tag, text=None, **kwargs):
-        """
-        Create a new child element and add it to the subelements
-        list. tag must be supplied. text is optional. Additional
-        keyword arguments may also be passed. These will be
-        assigned as attributes of the new element.
-        """
-        element = MetadataElement()
-        element.tag = tag
-        element.text = text
-        element.attributes.update(kwargs)
-        self.subelements.append(element)
-        return element
-
-    def compile(self, writer, compact=True):
-        """
-        Compile the element into a string of XML. If compact is
-        True, the XML will not have line breaks or leading whitespace.
-        """
-        attrs = {}
-        for k, v in self.attributes.items():
-            if v is not None:
-                attrs[k] = v
-        if self.subelements or self.text is not None:
-            writer.begintag(self.tag, **attrs)
-            if not compact:
-                writer.newline()
-            if self.text is not None:
-                writer.write(self.text)
-            if self.subelements:
-                for index, subelement in enumerate(self.subelements):
-                    subelement.compile(writer=writer, compact=compact)
-                    if not compact and index != len(self.subelements) - 1:
-                        writer.newline()
-            if not compact:
-                writer.newline()
-            writer.endtag(self.tag)
-        else:
-            writer.simpletag(self.tag, **attrs)
-
-    def __repr__(self):
-        return "<MetadataEntry '%s' at %x>" % (self.tag, id(self))
-
-
-class MetadataParser(object):
-
-    def __init__(self, metadata, text):
-        self.stack = [metadata]
-        self.parse(text)
-
-    def _get_currentElement(self):
-        return self.stack[-1]
-
-    currentElement = property(_get_currentElement)
-
-    def parse(self, text):
-        from xml.parsers.expat import ParserCreate
-        text = text.encode("utf-8")
-        parser = ParserCreate("utf-8")
-        parser.returns_unicode = 1
-        parser.StartElementHandler = self.startElementHandler
-        parser.EndElementHandler = self.endElementHandler
-        parser.CharacterDataHandler = self.characterDataHandler
-        parser.Parse(text)
-
-    def startElementHandler(self, name, attrs):
-        if name == "metadata":
-            return
-        stringified = {}
-        for k, v in attrs.items():
-            stringified[str(k)] = v
-        element = self.currentElement.newElement(tag=name, **stringified)
-        self.stack.append(element)
-
-    def characterDataHandler(self, data):
-        data = data.lstrip()
-        if not data:
-            return
-        if self.currentElement.text is None:
-            self.currentElement.text = data
-        else:
-            self.currentElement.text += data
-
-    def endElementHandler(self, name):
-        if name == "metadata":
-            return
-        assert self.currentElement.tag == name
-        del self.stack[-1]
-
-
-class _MetadataFileProxy(object):
-
-    def __init__(self):
-        self._data = []
-
-    def write(self, data):
-        self._data.append(data)
-
-    def getvalue(self):
-        text = u"".join(self._data)
-        return text.encode("utf-8")
 
 
 # -------
