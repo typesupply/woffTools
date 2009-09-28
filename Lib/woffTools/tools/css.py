@@ -256,6 +256,7 @@ def main():
             sys.exit()
         else:
             print "Creating CSS: %s..." % fontPath
+            fontPath = fontPath.decode("utf-8")
             font = WOFFFont(fontPath)
             css = makeFontFaceRule(font, fontPath, doLocalSrc=not options.skipLocalSrc)
             # make the output file name

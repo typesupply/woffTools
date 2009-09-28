@@ -185,6 +185,7 @@ def main():
             sys.exit()
         else:
             print "Creating Proof: %s..." % fontPath
+            fontPath = fontPath.decode("utf-8")
             font = WOFFFont(fontPath)
             html = proofFont(font, fontPath, sampleText=sampleText)
             # make the output file name

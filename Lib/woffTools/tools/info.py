@@ -251,6 +251,7 @@ def main():
             sys.exit()
         else:
             print "Creating Info Report: %s..." % fontPath
+            fontPath = fontPath.decode("utf-8")
             font = WOFFFont(fontPath)
             html = reportInfo(font, fontPath)
             # make the output file name
