@@ -4,7 +4,7 @@ from xml.etree import ElementTree
 import sstruct
 from fontTools.ttLib.sfnt import getSearchRange, SFNTDirectoryEntry, \
     sfntDirectoryFormat, sfntDirectorySize, sfntDirectoryEntryFormat, sfntDirectoryEntrySize
-from woffValidator import HTMLReporter,\
+from woffTools.tools.validate import HTMLReporter,\
     calcChecksum, calcHeadCheckSum,\
     shouldSkipMetadataTest,\
     testDirectoryBorders,\
