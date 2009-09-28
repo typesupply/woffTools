@@ -1,3 +1,5 @@
+import os
+import time
 from xml.etree import ElementTree
 from cStringIO import StringIO
 
@@ -232,8 +234,9 @@ defaultCSS = """
 
         /* Private Data */
 
-        p.privateData {
-            font-size: 12px;
+        pre.privateData {
+            font-size: 14px;
+            font-family: Consolas, Menlo, "Vera Mono", Monaco, monospace;
             margin: 0px;
             padding: 0px;
         }
@@ -276,3 +279,23 @@ def finishHTML(writer):
     text = text.replace("c_l_a_s_s", "class").replace("http_equiv", "http-equiv")
     # return
     return text
+
+# ---------
+# File Name
+# ---------
+
+def findUniqueFileName(path):
+    if not os.path.exists(path):
+        return path
+    folder = os.path.dirname(path)
+    fileName = os.path.basename(path)
+    fileName, extension = os.path.splitext(fileName)
+    stamp = time.strftime("%Y-%m-%d %H-%M-%S %Z")
+    newFileName = "%s (%s)%s" % (fileName, stamp, extension)
+    newPath = os.path.join(folder, newFileName)
+    # intentionally break to prevent a file overwrite.
+    # this could happen if the user has a directory full
+    # of files with future time stamped file names.
+    # not likely, but avoid it all the same.
+    assert not os.path.exists(newPath)
+    return newPath

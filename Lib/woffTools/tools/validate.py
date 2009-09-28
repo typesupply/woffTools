@@ -1,19 +1,15 @@
 """
-This is a command line tool for validating the file structure
-of WOFF files.
+A module for validating the the file structure of WOFF Files.
+*validateFont* is the only public function.
+
+This can also be used as a command line tool for validating WOFF files.
 """
 
 """
 TO DO:
 - report
     - add some javascript that allows sections to be hidden.
-        - show/hide reports at top
         - show/hide test result levels
-    - display checksums, lengths and offsets as hex
-    - show private data as hex dump?
-    - show file size in bytes
-    - add indicator showing if table is compressed
-        - maybe color the rows and add a note about the colors at the bottom
 - split length and offset tests into smaller functions that can be more easily doctested
 """
 
@@ -29,6 +25,7 @@ from xml.etree import ElementTree
 from xml.parsers.expat import ExpatError
 from fontTools.ttLib.sfnt import getSearchRange, SFNTDirectoryEntry, \
     sfntDirectoryFormat, sfntDirectorySize, sfntDirectoryEntryFormat, sfntDirectoryEntrySize
+from woffTools.tools.support import startHTML, finishHTML
 
 # ------
 # Header
@@ -1268,8 +1265,6 @@ class HTMLReporter(object):
     def __init__(self):
         self.title = ""
         self.fileInfo = []
-        self.tableInfo = []
-        self.metadata = ""
         self.testResults = []
         self.haveReadError = False
 
@@ -1306,17 +1301,12 @@ class HTMLReporter(object):
         self.testResults[-1].append(d)
 
     def getReport(self):
-        from support import startHTML, finishHTML
         writer = startHTML(title=self.title)
         # write the file info
         self._writeFileInfo(writer)
         # write major error alert
         if self.haveReadError:
             self._writeMajorError(writer)
-        # write table, metadata and private data information
-        else:
-            self._writeSFNTReport(writer)
-            self._writeMetadata(writer)
         # write the test overview
         self._writeTestResultsOverview(writer)
         # write the test groups
@@ -1357,89 +1347,6 @@ class HTMLReporter(object):
         writer.begintag("h2", c_l_a_s_s="readError")
         writer.write("The file contains major structural errors!")
         writer.endtag("h2")
-
-    def _writeSFNTReport(self, writer):
-        # tables
-        ## start the block
-        writer.begintag("div", c_l_a_s_s="infoBlock")
-        ## title
-        writer.begintag("h3", c_l_a_s_s="infoBlockTitle")
-        writer.write("sfnt Tables")
-        writer.endtag("h3")
-        ## tables
-        writer.begintag("table", c_l_a_s_s="sfntTableData")
-        writer.begintag("tr")
-        columns = "tag offset compLength origLength origChecksum".split()
-        for c in columns:
-            writer.begintag("th")
-            writer.write(c)
-            writer.endtag("th")
-        writer.endtag("tr")
-        for tag, offset, compLength, origLength, origChecksum in self.tableInfo:
-            writer.begintag("tr")
-            for v in (tag, offset, compLength, origLength, origChecksum):
-                writer.begintag("td")
-                writer.write(v)
-                writer.endtag("td")
-            writer.endtag("tr")
-        writer.endtag("table")
-        ## close the block
-        writer.endtag("div")
-
-    def _writeMetadata(self, writer):
-        # metadata
-        ## start the block
-        writer.begintag("div", c_l_a_s_s="infoBlock")
-        ## title
-        writer.begintag("h3", c_l_a_s_s="infoBlockTitle")
-        writer.write("Metadata")
-        writer.endtag("h3")
-        ### content
-        for element in self.metadata:
-            self._writeMetadataElement(writer, element)
-        ## close the block
-        writer.endtag("div")
-
-    def _writeMetadataElement(self, writer, element):
-        writer.begintag("div", c_l_a_s_s="metadataElement")
-        # tag
-        writer.begintag("h5", c_l_a_s_s="metadata")
-        writer.write(element.tag)
-        writer.endtag("h5")
-        # attributes
-        if len(element.attrib):
-            writer.begintag("h6", c_l_a_s_s="metadata")
-            writer.write("Attributes:")
-            writer.endtag("h6")
-            # key, value pairs
-            writer.begintag("table", c_l_a_s_s="metadata")
-            for key, value in sorted(element.attrib.items()):
-                writer.begintag("tr")
-                writer.begintag("td", c_l_a_s_s="key")
-                writer.write(key)
-                writer.endtag("td")
-                writer.begintag("td", c_l_a_s_s="value")
-                writer.write(value)
-                writer.endtag("td")
-                writer.endtag("tr")
-            writer.endtag("table")
-        # text
-        if element.text is not None and element.text.strip():
-            writer.begintag("h6", c_l_a_s_s="metadata")
-            writer.write("Text:")
-            writer.endtag("h6")
-            writer.begintag("p", c_l_a_s_s="metadata")
-            writer.write(element.text)
-            writer.endtag("p")
-        # child elements
-        if len(element):
-            writer.begintag("h6", c_l_a_s_s="metadata")
-            writer.write("Child Elements:")
-            writer.endtag("h6")
-            for child in element:
-                self._writeMetadataElement(writer, child)
-        # close
-        writer.endtag("div")
 
     def _writeTestResultsOverview(self, writer):
         ## tabulate
@@ -1633,9 +1540,9 @@ def padData(data):
         data += "\0" * (4 - remainder)
     return data
 
-# -------------------
-# Execution Functions
-# -------------------
+# ---------------
+# Public Function
+# ---------------
 
 tests = [
     ("Header - Size",                       "h-size",               testHeaderSize),
@@ -1665,15 +1572,12 @@ tests = [
     ("Private Data - Offset and Length",    "m-structure",          testPrivateDataOffsetAndLength),
 ]
 
-def testFont(path, options, writeFile=True):
+def validateFont(path, options, writeFile=True):
     reporter = HTMLReporter()
     reporter.logTitle("Report: %s" % os.path.basename(path))
     # log fileinfo
     reporter.logFileInfo("FILE", os.path.basename(path))
     reporter.logFileInfo("DIRECTORY", os.path.dirname(path))
-    size = os.path.getsize(path)
-    size = size * .001
-    reporter.logFileInfo("FILE SIZE", str(size) + "k")
     # run tests and log results
     skip = options.excludeTests
     f = open(path, "rb")
@@ -1688,21 +1592,6 @@ def testFont(path, options, writeFile=True):
         if shouldStop:
             break
     reporter.haveReadError = shouldStop
-    # log the table, metadata and private data info
-    if not shouldStop:
-        # tables
-        directory = unpackDirectory(data)
-        sorter = [(entry["offset"], entry) for entry in directory]
-        for offset, entry in sorted(sorter):
-            reporter.logTableInfo(
-                tag=entry["tag"],
-                offset=str(entry["offset"]),
-                compLength=str(entry["compLength"]),
-                origLength=str(entry["origLength"]),
-                origChecksum=str(entry["origChecksum"])
-            )
-        # metadata
-        reporter.metadata = unpackMetadata(data)
     # get the report
     report = reporter.getReport()
     # write
@@ -1712,7 +1601,7 @@ def testFont(path, options, writeFile=True):
             fileName = options.outputFileName
         else:
             fileName = os.path.splitext(os.path.basename(path))[0]
-            fileName += "_report"
+            fileName += "_validate"
             fileName += ".html"
         # make the output directory
         if options.outputDirectory is not None:
@@ -1725,6 +1614,10 @@ def testFont(path, options, writeFile=True):
         f.write(report)
         f.close()
     return report
+
+# --------------------
+# Command Line Behvior
+# --------------------
 
 usage = "%prog [options] fontpath1 fontpath2"
 
@@ -1741,7 +1634,7 @@ def main():
     parser = optparse.OptionParser(usage=usage, description=description, version="%prog 0.1beta")
     parser.add_option("-x", action="append", dest="excludeTests", help="Exclude tests. Supply an identifier from this list: %s" % ", ".join(identifiers))
     parser.add_option("-d", dest="outputDirectory", help="Output directory. The default is to output the report into the same directory as the font file.")
-    parser.add_option("-o", dest="outputFileName", help="Output file name. The default is \"fontfilename_report.html\".")
+    parser.add_option("-o", dest="outputFileName", help="Output file name. The default is \"fontfilename_validate.html\".")
     parser.set_defaults(excludeTests=[])
     (options, args) = parser.parse_args()
     outputDirectory = options.outputDirectory
@@ -1755,7 +1648,7 @@ def main():
         else:
             print "Testing: %s..." % fontPath
             fontPath = fontPath.decode("utf-8")
-            testFont(fontPath, options)
+            validateFont(fontPath, options)
 
 if __name__ == "__main__":
     main()
