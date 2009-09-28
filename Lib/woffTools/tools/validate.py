@@ -3,29 +3,6 @@ This is a command line tool for validating the file structure
 of WOFF files.
 """
 
-license ="""The MIT License
-
-Copyright (c) 2009 Type Supply LLC
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in
-all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-THE SOFTWARE.
-"""
-
 """
 TO DO:
 - report
@@ -1329,33 +1306,9 @@ class HTMLReporter(object):
         self.testResults[-1].append(d)
 
     def getReport(self):
-        from xmlWriter import XMLWriter
-        ioFile = ReporterFileProxy()
-        writer = XMLWriter(ioFile, encoding="utf-8")
-        # start the html
-        writer.begintag("html", xmlns="http://www.w3.org/1999/xhtml", lang="en")
-        writer.newline()
-        # start the head
-        writer.begintag("head")
-        writer.newline()
-        writer.simpletag("meta", http_equiv="Content-Type", content="text/html; charset=utf-8")
-        writer.newline()
-        # title
-        writer.begintag("title")
-        writer.write(self.title)
-        writer.endtag("title")
-        writer.newline()
-        # write the css
-        writer.begintag("style", type="text/css")
-        writer.write(defaultCSS)
-        writer.endtag("style")
-        writer.newline()
-        # close the head
-        writer.endtag("head")
-        writer.newline()
-        # start the body
-        writer.begintag("body")
-        writer.newline()
+        from support import startHTML, finishHTML
+        writer = startHTML(title=self.title)
+        # write the file info
         self._writeFileInfo(writer)
         # write major error alert
         if self.haveReadError:
@@ -1368,76 +1321,53 @@ class HTMLReporter(object):
         self._writeTestResultsOverview(writer)
         # write the test groups
         self._writeTestResults(writer)
-        # close the body
-        writer.endtag("body")
-        writer.newline()
         # close the html
-        writer.endtag("html")
+        text = finishHTML(writer)
         # done
-        text = ioFile.getvalue()
-        text = text.splitlines()[1:]
-        text = [
-            "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">"
-        ] + text
-        text = "\n".join(text)
-        return text.replace("c_l_a_s_s", "class").replace("http_equiv", "http-equiv")
+        return text
 
     def _writeFileInfo(self, writer):
         # write the font info
         writer.begintag("div", c_l_a_s_s="infoBlock")
-        writer.newline()
         ## title
         writer.begintag("h3", c_l_a_s_s="infoBlockTitle")
         writer.write("File Information")
         writer.endtag("h3")
-        writer.newline()
         ## table
         writer.begintag("table", c_l_a_s_s="report")
-        writer.newline()
         ## items
         for title, value in self.fileInfo:
             # row
             writer.begintag("tr")
-            writer.newline()
             # title
             writer.begintag("td", c_l_a_s_s="title")
             writer.write(title)
             writer.endtag("td")
             # message
             writer.begintag("td")
-            writer.newline()
             writer.write(value)
-            writer.newline()
             writer.endtag("td")
-            writer.newline()
             # close row
             writer.endtag("tr")
-            writer.newline()
         writer.endtag("table")
-        writer.newline()
         ## close the container
         writer.endtag("div")
-        writer.newline()
 
     def _writeMajorError(self, writer):
         writer.begintag("h2", c_l_a_s_s="readError")
         writer.write("The file contains major structural errors!")
         writer.endtag("h2")
-        writer.newline()
 
     def _writeSFNTReport(self, writer):
         # tables
         ## start the block
         writer.begintag("div", c_l_a_s_s="infoBlock")
-        writer.newline()
         ## title
         writer.begintag("h3", c_l_a_s_s="infoBlockTitle")
         writer.write("sfnt Tables")
         writer.endtag("h3")
-        writer.newline()
         ## tables
         writer.begintag("table", c_l_a_s_s="sfntTableData")
-        writer.newline()
         writer.begintag("tr")
         columns = "tag offset compLength origLength origChecksum".split()
         for c in columns:
@@ -1445,7 +1375,6 @@ class HTMLReporter(object):
             writer.write(c)
             writer.endtag("th")
         writer.endtag("tr")
-        writer.newline()
         for tag, offset, compLength, origLength, origChecksum in self.tableInfo:
             writer.begintag("tr")
             for v in (tag, offset, compLength, origLength, origChecksum):
@@ -1453,47 +1382,37 @@ class HTMLReporter(object):
                 writer.write(v)
                 writer.endtag("td")
             writer.endtag("tr")
-            writer.newline()
         writer.endtag("table")
-        writer.newline()
         ## close the block
         writer.endtag("div")
-        writer.newline()
 
     def _writeMetadata(self, writer):
         # metadata
         ## start the block
         writer.begintag("div", c_l_a_s_s="infoBlock")
-        writer.newline()
         ## title
         writer.begintag("h3", c_l_a_s_s="infoBlockTitle")
         writer.write("Metadata")
         writer.endtag("h3")
-        writer.newline()
         ### content
         for element in self.metadata:
             self._writeMetadataElement(writer, element)
         ## close the block
         writer.endtag("div")
-        writer.newline()
 
     def _writeMetadataElement(self, writer, element):
         writer.begintag("div", c_l_a_s_s="metadataElement")
-        writer.newline()
         # tag
         writer.begintag("h5", c_l_a_s_s="metadata")
         writer.write(element.tag)
         writer.endtag("h5")
-        writer.newline()
         # attributes
         if len(element.attrib):
             writer.begintag("h6", c_l_a_s_s="metadata")
             writer.write("Attributes:")
             writer.endtag("h6")
-            writer.newline()
             # key, value pairs
             writer.begintag("table", c_l_a_s_s="metadata")
-            writer.newline()
             for key, value in sorted(element.attrib.items()):
                 writer.begintag("tr")
                 writer.begintag("td", c_l_a_s_s="key")
@@ -1503,30 +1422,24 @@ class HTMLReporter(object):
                 writer.write(value)
                 writer.endtag("td")
                 writer.endtag("tr")
-                writer.newline()
             writer.endtag("table")
-            writer.newline()
         # text
         if element.text is not None and element.text.strip():
             writer.begintag("h6", c_l_a_s_s="metadata")
             writer.write("Text:")
             writer.endtag("h6")
-            writer.newline()
             writer.begintag("p", c_l_a_s_s="metadata")
             writer.write(element.text)
             writer.endtag("p")
-            writer.newline()
         # child elements
         if len(element):
             writer.begintag("h6", c_l_a_s_s="metadata")
             writer.write("Child Elements:")
             writer.endtag("h6")
-            writer.newline()
             for child in element:
                 self._writeMetadataElement(writer, child)
         # close
         writer.endtag("div")
-        writer.newline()
 
     def _writeTestResultsOverview(self, writer):
         ## tabulate
@@ -1548,12 +1461,10 @@ class HTMLReporter(object):
         total = sum((notes, passes, errors, warnings))
         ## container
         writer.begintag("div", c_l_a_s_s="infoBlock")
-        writer.newline()
         ## header
         writer.begintag("h3", c_l_a_s_s="infoBlockTitle")
         writer.write("Results for %d Tests" % total)
         writer.endtag("h3")
-        writer.newline()
         ## results
         results = [
             ("PASS", passes),
@@ -1562,24 +1473,16 @@ class HTMLReporter(object):
             ("NOTE", notes),
         ]
         writer.begintag("table", c_l_a_s_s="report")
-        writer.newline()
         for tp, value in results:
             writer.begintag("tr", c_l_a_s_s="test%s" % tp.title())
-            writer.newline()
             writer.begintag("td", c_l_a_s_s="title")
             writer.write(tp)
             writer.endtag("td")
-            writer.newline()
             writer.begintag("td")
-            writer.newline()
             writer.write(str(value))
-            writer.newline()
             writer.endtag("td")
-            writer.newline()
             writer.endtag("tr")
-            writer.newline()
         writer.endtag("table")
-        writer.newline()
         ## close the container
         writer.endtag("div")
 
@@ -1587,60 +1490,36 @@ class HTMLReporter(object):
         for infoBlock in self.testResults:
             # container
             writer.begintag("div", c_l_a_s_s="infoBlock")
-            writer.newline()
             # header
             writer.begintag("h4", c_l_a_s_s="infoBlockTitle")
             writer.write(infoBlock.title)
             writer.endtag("h4")
-            writer.newline()
             # individual reports
             writer.begintag("table", c_l_a_s_s="report")
-            writer.newline()
             for data in infoBlock:
                 tp = data["type"]
                 message = data["message"]
                 information = data["information"]
                 # row
                 writer.begintag("tr", c_l_a_s_s="test%s" % tp.title())
-                writer.newline()
                 # title
                 writer.begintag("td", c_l_a_s_s="title")
                 writer.write(tp)
                 writer.endtag("td")
                 # message
                 writer.begintag("td")
-                writer.newline()
                 writer.write(message)
-                writer.newline()
                 ## info
                 if information:
                     writer.begintag("p", c_l_a_s_s="info")
                     writer.write(information)
                     writer.endtag("p")
-                    writer.newline()
                 writer.endtag("td")
-                writer.newline()
                 # close row
                 writer.endtag("tr")
-                writer.newline()
             writer.endtag("table")
-            writer.newline()
             # close container
             writer.endtag("div")
-            writer.newline()
-
-
-class ReporterFileProxy(object):
-
-    def __init__(self):
-        self._data = []
-
-    def write(self, data):
-        self._data.append(data)
-
-    def getvalue(self):
-        text = u"".join(self._data)
-        return text.encode("utf-8")
 
 
 # ----------------
@@ -1875,6 +1754,7 @@ def main():
             sys.exit()
         else:
             print "Testing: %s..." % fontPath
+            fontPath = fontPath.decode("utf-8")
             testFont(fontPath, options)
 
 def runDocTests():
