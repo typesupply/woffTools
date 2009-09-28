@@ -1,3 +1,10 @@
+"""
+A module for reporting information about the contents of
+WOFF files. *reportInfo* is the only public function.
+
+This can also be used as a command line tool.
+"""
+
 # import test
 
 importErrors = []
@@ -22,9 +29,7 @@ if importErrors:
 # import
 
 import os
-import urllib
 import optparse
-import time
 from woffTools import WOFFFont
 from woffTools.tools.support import startHTML, finishHTML, findUniqueFileName
 
@@ -196,6 +201,14 @@ def writePrivateData(font, writer):
 # ---------------
 
 def reportInfo(font, fontPath):
+    """
+    Create a report about the contents of font. This returns HTML.
+
+    Arguments
+
+    **font** - A *WOFFFont* object from *woffLib*.
+    **fontPath** - The location of the font file. At the least, this should be the file name for the font.
+    """
     # start the html
     title = "Info: %s" % os.path.basename(fontPath)
     writer = startHTML(title=title)
