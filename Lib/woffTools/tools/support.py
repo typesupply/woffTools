@@ -46,10 +46,10 @@ class XMLWriter(object):
 
 def indent(elem, level=0):
     # this is from http://effbot.python-hosting.com/file/effbotlib/ElementTree.py
-    i = "\n" + level * "  "
+    i = "\n" + level * "\t"
     if len(elem):
         if not elem.text or not elem.text.strip():
-            elem.text = i + "  "
+            elem.text = i + "\t"
         for e in elem:
             indent(e, level + 1)
         if not e.tail or not e.tail.strip():
@@ -62,188 +62,205 @@ def indent(elem, level=0):
 # ------------
 
 defaultCSS = """
-        body {
-            background-color: #e5e5e5;
-            padding: 15px 15px 0px 15px;
-            margin: 0px;
-            font-family: Helvetica, Verdana, Arial, sans-serif;
-        }
+body {
+	background-color: #e5e5e5;
+	padding: 15px 15px 0px 15px;
+	margin: 0px;
+	font-family: Helvetica, Verdana, Arial, sans-serif;
+}
 
-        h2.readError {
-            background-color: red;
-            color: white;
-            margin: 20px 15px 20px 15px;
-            padding: 10px;
-            border-radius: 5px;
-            -webkit-border-radius: 5px;
-            -moz-border-radius: 5px;
-            -webkit-box-shadow: #999 0 2px 5px;
-            -moz-box-shadow: #999 0 2px 5px;
-            font-size: 25px;
-        }
+h2.readError {
+	background-color: red;
+	color: white;
+	margin: 20px 15px 20px 15px;
+	padding: 10px;
+	border-radius: 5px;
+	-webkit-border-radius: 5px;
+	-moz-border-radius: 5px;
+	-webkit-box-shadow: #999 0 2px 5px;
+	-moz-box-shadow: #999 0 2px 5px;
+	font-size: 25px;
+}
 
-        /* info blocks */
+/* info blocks */
 
-        .infoBlock {
-            background-color: white;
-            margin: 0px 0px 15px 0px;
-            padding: 15px;
-            border-radius: 5px;
-            -webkit-border-radius: 5px;
-            -moz-border-radius: 5px;
-            -webkit-box-shadow: rgba(0, 0, 0, .3) 0 2px 5px;
-            -moz-box-shadow: rgba(0, 0, 0, .3) 0 2px 5px;
-        }
+.infoBlock {
+	background-color: white;
+	margin: 0px 0px 15px 0px;
+	padding: 15px;
+	border-radius: 5px;
+	-webkit-border-radius: 5px;
+	-moz-border-radius: 5px;
+	-webkit-box-shadow: rgba(0, 0, 0, .3) 0 2px 5px;
+	-moz-box-shadow: rgba(0, 0, 0, .3) 0 2px 5px;
+}
 
-        h3.infoBlockTitle {
-            font-size: 20px;
-            margin: 0px 0px 15px 0px;
-            padding: 0px 0px 10px 0px;
-            border-bottom: 1px solid #e5e5e5;
-        }
+h3.infoBlockTitle {
+	font-size: 20px;
+	margin: 0px 0px 15px 0px;
+	padding: 0px 0px 10px 0px;
+	border-bottom: 1px solid #e5e5e5;
+}
 
-        h4.infoBlockTitle {
-            font-size: 17px;
-            margin: 0px 0px 15px 0px;
-            padding: 0px 0px 10px 0px;
-            border-bottom: 1px solid #e5e5e5;
-        }
+h4.infoBlockTitle {
+	font-size: 17px;
+	margin: 0px 0px 15px 0px;
+	padding: 0px 0px 10px 0px;
+	border-bottom: 1px solid #e5e5e5;
+}
 
-        table.report {
-            border-collapse: collapse;
-            width: 100%;
-            font-size: 14px;
-        }
+table.report {
+	border-collapse: collapse;
+	width: 100%;
+	font-size: 14px;
+}
 
-        table.report tr {
-            border-top: 1px solid white;
-        }
+table.report tr {
+	border-top: 1px solid white;
+}
 
-        table.report tr.testPass {
-            background-color: #c8ffaf;
-        }
+table.report tr.testPass {
+	background-color: #c8ffaf;
+}
 
-        table.report tr.testError {
-            background-color: #ffc3af;
-        }
+table.report tr.testError {
+	background-color: #ffc3af;
+}
 
-        table.report tr.testWarning {
-            background-color: #ffe1af;
-        }
+table.report tr.testWarning {
+	background-color: #ffe1af;
+}
 
-        table.report tr.testNote {
-            background-color: #96e1ff;
-        }
+table.report tr.testNote {
+	background-color: #96e1ff;
+}
 
-        table.report tr.testTraceback {
-            background-color: red;
-            color: white;
-        }
+table.report tr.testTraceback {
+	background-color: red;
+	color: white;
+}
 
-        table.report td {
-            padding: 7px 5px 7px 5px;
-            vertical-align: top;
-        }
+table.report td {
+	padding: 7px 5px 7px 5px;
+	vertical-align: top;
+}
 
-        table.report td.title {
-            width: 80px;
-            text-align: right;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
+table.report td.title {
+	width: 80px;
+	text-align: right;
+	font-weight: bold;
+	text-transform: uppercase;
+}
 
-        .infoBlock td p.info {
-            font-size: 12px;
-            font-style: italic;
-            margin: 5px 0px 0px 0px;
-        }
+.infoBlock td p.info {
+	font-size: 12px;
+	font-style: italic;
+	margin: 5px 0px 0px 0px;
+}
 
-        /* SFNT table */
+/* SFNT table */
 
-        table.sfntTableData {
-            font-size: 14px;
-            width: 100%;
-            border-collapse: collapse;
-            padding: 0px;
-        }
+table.sfntTableData {
+	font-size: 14px;
+	width: 100%;
+	border-collapse: collapse;
+	padding: 0px;
+}
 
-        table.sfntTableData th {
-            padding: 5px 0px 5px 0px;
-            text-align: left
-        }
+table.sfntTableData th {
+	padding: 5px 0px 5px 0px;
+	text-align: left
+}
 
-        table.sfntTableData tr.uncompressed {
-            background-color: #ffc3af;
-        }
+table.sfntTableData tr.uncompressed {
+	background-color: #ffc3af;
+}
 
-        table.sfntTableData td {
-            width: 20%;
-            padding: 5px 0px 5px 0px;
-            border: 1px solid #e5e5e5;
-            border-left: none;
-            border-right: none;
-            font-family: Consolas, Menlo, "Vera Mono", Monaco, monospace;
-        }
+table.sfntTableData td {
+	width: 20%;
+	padding: 5px 0px 5px 0px;
+	border: 1px solid #e5e5e5;
+	border-left: none;
+	border-right: none;
+	font-family: Consolas, Menlo, "Vera Mono", Monaco, monospace;
+}
 
-        /* Metadata */
+/* Metadata */
 
-        .metadataElement {
-            background: rgba(0, 0, 0, 0.03);
-            margin: 10px 0px 10px 0px;
-            border: 2px solid #d8d8d8;
-            padding: 10px;
-        }
+.metadataElement {
+	background: rgba(0, 0, 0, 0.03);
+	margin: 10px 0px 10px 0px;
+	border: 2px solid #d8d8d8;
+	padding: 10px;
+}
 
-        h5.metadata {
-            font-size: 14px;
-            margin: 5px 0px 10px 0px;
-            padding: 0px 0px 5px 0px;
-            border-bottom: 1px solid #d8d8d8;
-        }
+h5.metadata {
+	font-size: 14px;
+	margin: 5px 0px 10px 0px;
+	padding: 0px 0px 5px 0px;
+	border-bottom: 1px solid #d8d8d8;
+}
 
-        h6.metadata {
-            font-size: 12px;
-            font-weight: normal;
-            margin: 10px 0px 10px 0px;
-            padding: 0px 0px 5px 0px;
-            border-bottom: 1px solid #d8d8d8;
-        }
+h6.metadata {
+	font-size: 12px;
+	font-weight: normal;
+	margin: 10px 0px 10px 0px;
+	padding: 0px 0px 5px 0px;
+	border-bottom: 1px solid #d8d8d8;
+}
 
-        table.metadata {
-            font-size: 12px;
-            width: 100%;
-            border-collapse: collapse;
-            padding: 0px;
-        }
+table.metadata {
+	font-size: 12px;
+	width: 100%;
+	border-collapse: collapse;
+	padding: 0px;
+}
 
-        table.metadata td.key {
-            width: 5em;
-            padding: 5px 5px 5px 0px;
-            border-right: 1px solid #d8d8d8;
-            text-align: right;
-            vertical-align: top;
-        }
+table.metadata td.key {
+	width: 5em;
+	padding: 5px 5px 5px 0px;
+	border-right: 1px solid #d8d8d8;
+	text-align: right;
+	vertical-align: top;
+}
 
-        table.metadata td.value {
-            padding: 5px 0px 5px 5px;
-            border-left: 1px solid #d8d8d8;
-            text-align: left;
-            vertical-align: top;
-        }
+table.metadata td.value {
+	padding: 5px 0px 5px 5px;
+	border-left: 1px solid #d8d8d8;
+	text-align: left;
+	vertical-align: top;
+}
 
-        p.metadata {
-            font-size: 12px;
-            font-style: italic;
-        }
+p.metadata {
+	font-size: 12px;
+	font-style: italic;
+}
 
-        /* Private Data */
+/* Private Data */
 
-        pre.privateData {
-            font-size: 14px;
-            font-family: Consolas, Menlo, "Vera Mono", Monaco, monospace;
-            margin: 0px;
-            padding: 0px;
-        }
+pre.privateData {
+	font-size: 14px;
+	font-family: Consolas, Menlo, "Vera Mono", Monaco, monospace;
+	margin: 0px;
+	padding: 0px;
+}
+
+/* Proof */
+
+/* proof: @font-face rule */
+
+p.characterSet {
+	/* proof: @font-face font-family */
+	margin: 0px;
+	padding: 0px;
+}
+
+p.sampleText {
+	/* proof: @font-face font-family */
+	margin: .5em 0px 0px 0px;
+	padding: .5em 0px 0px 0px;
+	border-top: 1px solid #e5e5e5;
+}
 """
 
 def startHTML(title=None, cssReplacements={}):
