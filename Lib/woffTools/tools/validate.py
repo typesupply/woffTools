@@ -1729,7 +1729,7 @@ def testFont(path, options, writeFile=True):
 usage = "%prog [options] fontpath1 fontpath2"
 
 description = """This tool examines the structure of one
-or more WebOTF files and issues a detailed report about
+or more WOFF files and issues a detailed report about
 the validity of the file structure. It does not validate
 the wrapped font data.
 """
