@@ -251,12 +251,15 @@ pre.privateData {
 
 p.characterSet {
 	/* proof: @font-face font-family */
+	line-height: 135%;
+	word-wrap: break-word;
 	margin: 0px;
 	padding: 0px;
 }
 
 p.sampleText {
 	/* proof: @font-face font-family */
+	line-height: 135%;
 	margin: .5em 0px 0px 0px;
 	padding: .5em 0px 0px 0px;
 	border-top: 1px solid #e5e5e5;
