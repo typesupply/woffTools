@@ -57,27 +57,38 @@ def makeFontFaceFontFamily(font):
 
 def makeFontFaceSrc(font, fileName, doLocalSrc=True):
     sources = []
-    if doLocalSrc:
-        # postscript name
-        postscriptPriority = [
-            (6, 1, 0, 0),           # Postscript Name, Mac, English, Roman
-            (6, 1, None, None),     # Postscript Name, Mac, Any, Any
-            (6, None, None, None),  # Postscript Name, Any, Any, Any
-        ]
-        postscriptName = _skimNameIDs(font, postscriptPriority)
-        # full name
-        fullNamePriority = [
-            (4, 1, 0, 0),           # Full Font Name, Mac, English, Roman
-            (4, 1, None, None),     # Full Font Name, Mac, Any, Any
-            (4, None, None, None),  # Full Font Name, Any, Any, Any
-        ]
-        fullName = _skimNameIDs(font, fullNamePriority)
-        # store
-        s = "local(\"%s\")" % postscriptName
+    # notes about "local"
+    sources.append("")
+    sources.append("/* The \"local\" lines will cause the browser to look for a locally */")
+    sources.append("/* installed font with the specified name before downloading the WOFF file. */")
+    if not doLocalSrc:
+        sources.append("/* Remove the commenting if you want this behavior. */")
+    else:
+        sources.append("/* Remove the lines if you don't want this behavior. */")
+    # postscript name
+    postscriptPriority = [
+        (6, 1, 0, 0),           # Postscript Name, Mac, English, Roman
+        (6, 1, None, None),     # Postscript Name, Mac, Any, Any
+        (6, None, None, None),  # Postscript Name, Any, Any, Any
+    ]
+    postscriptName = _skimNameIDs(font, postscriptPriority)
+    # full name
+    fullNamePriority = [
+        (4, 1, 0, 0),           # Full Font Name, Mac, English, Roman
+        (4, 1, None, None),     # Full Font Name, Mac, Any, Any
+        (4, None, None, None),  # Full Font Name, Any, Any, Any
+    ]
+    fullName = _skimNameIDs(font, fullNamePriority)
+    # store
+    s = "local(\"%s\")" % postscriptName
+    if not doLocalSrc:
+        s = "/* " + s + " */"
+    sources.append(s)
+    if postscriptName != fullName:
+        s = "local(\"%s\")" % fullName
+        if not doLocalSrc:
+            s = "/* " + s + " */"
         sources.append(s)
-        if postscriptName != fullName:
-            s = "local(\"%s\")" % fullName
-            sources.append(s)
     # file name
     s = "url(\"%s\")" % urllib.quote(fileName) # XXX:  format(\"woff\")
     sources.append(s)
@@ -244,7 +255,7 @@ def main():
     parser = optparse.OptionParser(usage=usage, description=description, version="%prog 0.1beta")
     parser.add_option("-d", dest="outputDirectory", help="Output directory. The default is to output the CSS into the same directory as the font file.")
     parser.add_option("-o", dest="outputFileName", help="Output file name. The default is \"fontfilename.css\". If this file already exists a time stamp will be added to the file name.")
-    parser.add_option("-l", action="store_true", dest="skipLocalSrc", help="Skip \"local\" instructions as part of the \"src\" descriptor.")
+    parser.add_option("-l", action="store_true", dest="doLocalSrc", help="Write \"local\" instructions as part of the \"src\" descriptor.")
     (options, args) = parser.parse_args()
     outputDirectory = options.outputDirectory
     if outputDirectory is not None and not os.path.exists(outputDirectory):
@@ -258,7 +269,7 @@ def main():
             print "Creating CSS: %s..." % fontPath
             fontPath = fontPath.decode("utf-8")
             font = WOFFFont(fontPath)
-            css = makeFontFaceRule(font, fontPath, doLocalSrc=not options.skipLocalSrc)
+            css = makeFontFaceRule(font, fontPath, doLocalSrc=options.doLocalSrc)
             # make the output file name
             if options.outputFileName is not None:
                 fileName = options.outputFileName
