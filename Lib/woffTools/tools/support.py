@@ -291,6 +291,8 @@ function testResultToggleButtonHit(buttonID, className) {
 	var elements = getTestResults(className);
 	for (var e = 0; e < elements.length; ++e) {
 		toggleElement(elements[e]);
+	// toggle the info blocks
+	toggleInfoBlocks();
 	}
 }
 
@@ -312,6 +314,33 @@ function toggleElement(element) {
 	}
 	else {
 	 	element.style.display = "";
+	}
+}
+
+function toggleInfoBlocks() {
+	var tables = document.getElementsByTagName("table")
+	for (var t = 0; t < tables.length; ++t) {
+		var table = tables[t];
+		if (table.className == "report") {
+			var haveVisibleRow = false;
+			var rows = table.rows;
+			for (var r = 0; r < rows.length; ++r) {
+				var row = rows[r];
+				if (row.style.display == "none") {
+					var i = 0;
+				}
+				else {
+					haveVisibleRow = true;
+				}
+			}
+			var div = table.parentElement;
+			if (haveVisibleRow == true) {
+				div.style.display = "";
+			}
+			else {
+				div.style.display = "none";
+			}
+		}
 	}
 }
 """

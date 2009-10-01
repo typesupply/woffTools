@@ -7,9 +7,6 @@ This can also be used as a command line tool for validating WOFF files.
 
 """
 TO DO:
-- report
-    - add some javascript that allows sections to be hidden.
-        - show/hide test result levels
 - split length and offset tests into smaller functions that can be more easily doctested
 """
 
