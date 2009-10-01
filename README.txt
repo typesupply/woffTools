@@ -20,3 +20,7 @@ woff-all - Run all of the tests above.
 Python Objects
 Refer to the documentation in woffTools.__init__ for information
 about using the available Python objects.
+
+Bugs? Suggestions?
+If you notice bugs or have any suggestions, please contact me
+at tal@typesupply.com.
