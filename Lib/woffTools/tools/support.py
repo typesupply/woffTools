@@ -119,23 +119,23 @@ table.report tr {
 	border-top: 1px solid white;
 }
 
-table.report tr.testPass {
+table.report tr.testPass, table.report tr.testReportPass {
 	background-color: #c8ffaf;
 }
 
-table.report tr.testError {
+table.report tr.testError, table.report tr.testReportError {
 	background-color: #ffc3af;
 }
 
-table.report tr.testWarning {
+table.report tr.testWarning, table.report tr.testReportWarning {
 	background-color: #ffe1af;
 }
 
-table.report tr.testNote {
+table.report tr.testNote, table.report tr.testReportNote {
 	background-color: #96e1ff;
 }
 
-table.report tr.testTraceback {
+table.report tr.testTraceback, table.report tr.testReportTraceback {
 	background-color: red;
 	color: white;
 }
@@ -150,6 +150,17 @@ table.report td.title {
 	text-align: right;
 	font-weight: bold;
 	text-transform: uppercase;
+}
+
+table.report td.testReportResultCount {
+	width: 100px;
+}
+
+table.report td.toggleButton {
+	text-align: center;
+	width: 50px;
+	border-left: 1px solid white;
+	cursor: pointer;
 }
 
 .infoBlock td p.info {
@@ -266,6 +277,45 @@ p.sampleText {
 }
 """
 
+defaultJavascript = """
+function testResultToggleButtonHit(buttonID, className) {
+	// change the button title
+	var element = document.getElementById(buttonID);
+	if (element.innerText == "Show" ) {
+	 	element.innerText = "Hide";
+	}
+	else {
+	 	element.innerText = "Show";
+	}
+	// toggle the elements
+	var elements = getTestResults(className);
+	for (var e = 0; e < elements.length; ++e) {
+		toggleElement(elements[e]);
+	}
+}
+
+function getTestResults(className) {
+	var rows = document.getElementsByTagName("tr");
+	var found = Array();
+	for (var r = 0; r < rows.length; ++r) {
+		var row = rows[r];
+		if (row.className == className) {
+			found[found.length] = row;
+		}
+	}
+	return found;
+}
+
+function toggleElement(element) {
+	if (element.style.display != "none" ) {
+	 	element.style.display = "none";
+	}
+	else {
+	 	element.style.display = "";
+	}
+}
+"""
+
 def startHTML(title=None, cssReplacements={}):
     writer = XMLWriter()
     # start the html
@@ -285,6 +335,14 @@ def startHTML(title=None, cssReplacements={}):
         css = css.replace(before, after)
     writer.write(css)
     writer.endtag("style")
+    # write the javascript
+    writer.begintag("script", type="text/javascript")
+    javascript = defaultJavascript
+    ## hack around some ElementTree escaping
+    javascript = javascript.replace("<", "l_e_s_s")
+    javascript = javascript.replace(">", "g_r_e_a_t_e_r")
+    writer.write(javascript)
+    writer.endtag("script")
     # close the head
     writer.endtag("head")
     # start the body
@@ -300,7 +358,11 @@ def finishHTML(writer):
     # get the text
     text = "<!DOCTYPE html PUBLIC \"-//W3C//DTD XHTML 1.0 Transitional//EN\" \"http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd\">\n"
     text += writer.compile()
-    text = text.replace("c_l_a_s_s", "class").replace("http_equiv", "http-equiv")
+    text = text.replace("c_l_a_s_s", "class")
+    text = text.replace("a_p_o_s_t_r_o_p_h_e", "'")
+    text = text.replace("l_e_s_s", "<")
+    text = text.replace("g_r_e_a_t_e_r", ">")
+    text = text.replace("http_equiv", "http-equiv")
     # return
     return text
 

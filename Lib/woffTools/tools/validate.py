@@ -1230,13 +1230,26 @@ class HTMLReporter(object):
         ]
         writer.begintag("table", c_l_a_s_s="report")
         for tp, value in results:
-            writer.begintag("tr", c_l_a_s_s="test%s" % tp.title())
+            # title
+            writer.begintag("tr", c_l_a_s_s="testReport%s" % tp.title())
             writer.begintag("td", c_l_a_s_s="title")
             writer.write(tp)
             writer.endtag("td")
-            writer.begintag("td")
+            # count
+            writer.begintag("td", c_l_a_s_s="testReportResultCount")
             writer.write(str(value))
             writer.endtag("td")
+            # empty
+            writer.begintag("td")
+            writer.endtag("td")
+            # toggle button
+            buttonID = "testResult%sToggleButton" % tp
+            writer.begintag("td",
+                id=buttonID, c_l_a_s_s="toggleButton",
+                onclick="testResultToggleButtonHit(a_p_o_s_t_r_o_p_h_e%sa_p_o_s_t_r_o_p_h_e, a_p_o_s_t_r_o_p_h_e%sa_p_o_s_t_r_o_p_h_e);" % (buttonID, "test%s" % tp.title()))
+            writer.write("Hide")
+            writer.endtag("td")
+            # close the row
             writer.endtag("tr")
         writer.endtag("table")
         ## close the container
