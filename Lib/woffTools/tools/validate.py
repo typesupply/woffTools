@@ -11,7 +11,7 @@ TO DO:
     - add some javascript that allows sections to be hidden.
         - show/hide test result levels
 - split length and offset tests into smaller functions that can be more easily doctested
-- show checksums as hex
+- missing text elements should be a warning, not an error
 """
 
 # import test
@@ -350,7 +350,7 @@ def testDirectoryChecksums(data, reporter):
         origChecksum = entry["origChecksum"]
         newChecksum = calcChecksum(tag, tables[tag])
         if newChecksum != origChecksum:
-            reporter.logError(message="The \"%s\" table directory entry original checksum (%d) does not match the checksum (%d) calculated from the data." % (tag, origChecksum, newChecksum))
+            reporter.logError(message="The \"%s\" table directory entry original checksum (%s) does not match the checksum (%s) calculated from the data." % (tag, hex(origChecksum), hex(newChecksum)))
         else:
             reporter.logPass(message="The \"%s\" table directory entry original checksum is correct." % tag)
 
@@ -448,7 +448,7 @@ def testHeadCheckSumAdjustment(data, reporter):
         format = ">l"
         checksum = struct.unpack(format, data[8:12])[0]
         if checksum != newChecksum:
-            reporter.logError(message="The \"head\" table checkSumAdjustment (%d) does not match the calculated checkSumAdjustment (%d)." % (checksum, newChecksum))
+            reporter.logError(message="The \"head\" table checkSumAdjustment (%s) does not match the calculated checkSumAdjustment (%s)." % (hex(checksum), hex(newChecksum)))
         else:
             reporter.logPass(message="The \"head\" table checkSumAdjustment is valid.")
     except:
