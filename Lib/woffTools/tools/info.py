@@ -32,6 +32,7 @@ import os
 import optparse
 from woffTools import WOFFFont
 from woffTools.tools.support import startHTML, finishHTML, findUniqueFileName
+from woffTools.tools.css import makeFontFaceRule
 
 
 # ----------------
@@ -196,6 +197,21 @@ def writePrivateData(font, writer):
     # close the block
     writer.endtag("div")
 
+def writeFontFaceRule(font, fontPath, writer):
+    # start the block
+    writer.begintag("div", c_l_a_s_s="infoBlock")
+    # title
+    writer.begintag("h3", c_l_a_s_s="infoBlockTitle")
+    writer.write("@font-face")
+    writer.endtag("h3")
+    # the text
+    fontFaceRule = makeFontFaceRule(font, fontPath, doLocalSrc=False)
+    writer.begintag("pre", c_l_a_s_s="fontFaceRule")
+    writer.write(fontFaceRule)
+    writer.endtag("pre")
+    # close the container
+    writer.endtag("div")
+
 # ---------------
 # Public Function
 # ---------------
@@ -220,6 +236,8 @@ def reportInfo(font, fontPath):
     writeMetadata(font, writer)
     # private data
     writePrivateData(font, writer)
+    # @font-face
+    writeFontFaceRule(font, fontPath, writer)
     # finish the html
     text = finishHTML(writer)
     # return

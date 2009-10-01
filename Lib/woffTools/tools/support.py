@@ -196,6 +196,13 @@ table.sfntTableData td {
 	font-family: Consolas, Menlo, "Vera Mono", Monaco, monospace;
 }
 
+pre {
+	font-size: 12px;
+	font-family: Consolas, Menlo, "Vera Mono", Monaco, monospace;
+	margin: 0px;
+	padding: 0px;
+}
+
 /* Metadata */
 
 .metadataElement {
@@ -245,15 +252,6 @@ table.metadata td.value {
 p.metadata {
 	font-size: 12px;
 	font-style: italic;
-}
-
-/* Private Data */
-
-pre.privateData {
-	font-size: 14px;
-	font-family: Consolas, Menlo, "Vera Mono", Monaco, monospace;
-	margin: 0px;
-	padding: 0px;
 }
 
 /* Proof */
