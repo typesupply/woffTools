@@ -27,7 +27,7 @@ from woffTools.tools.validate import HTMLReporter,\
     testMetadataAbstractElementIllegalText,\
     testMetadataAbstractElementOptionalAttributes,\
     testMetadataAbstractElementRequiredAttributes,\
-    testMetadataAbstractElementRequiredChildElements,\
+    testMetadataAbstractElementKnownChildElements,\
     testMetadataAbstractElementRequiredText,\
     testMetadataAbstractElementUnknownAttributes,\
     testMetadataAbstractTextElements,\
@@ -78,7 +78,8 @@ def doctestFunction2(func, data):
 
 def doctestMetadataAbstractElementFunction(func, element,
     requiredAttributes=None, optionalAttributes=None,
-    requireText=None, requiredChildElements=None,
+    requireText=None,
+    knownChildElements=None, missingChildElementsAlertLevel=None,
     noteMissingOptionalAttributes=None):
     reporter = HTMLReporter()
     reporter.logTestTitle("doctest")
@@ -87,8 +88,10 @@ def doctestMetadataAbstractElementFunction(func, element,
         kwargs["requiredAttributes"] = requiredAttributes
     if optionalAttributes is not None:
         kwargs["optionalAttributes"] = optionalAttributes
-    if requiredChildElements:
-        kwargs["requiredChildElements"] = requiredChildElements
+    if knownChildElements:
+        kwargs["knownChildElements"] = knownChildElements
+    if missingChildElementsAlertLevel:
+        kwargs["missingChildElementsAlertLevel"] = missingChildElementsAlertLevel
     if noteMissingOptionalAttributes is not None:
         kwargs["noteMissingOptionalAttributes"] = noteMissingOptionalAttributes
     func(element, reporter, "test", **kwargs)
@@ -1512,16 +1515,16 @@ def metadataAbstractElementIllegalChildElementTest2():
     """
     return ElementTree.fromstring(metadata)
 
-# testMetadataAbstractElementRequiredChildElements
+# testMetadataAbstractElementKnownChildElements
 
 def metadataAbstractElementRequiredChildElementTest1():
     """
-    No child elements, child elements required.
+    No child elements, child elements required. Report error.
 
     >>> doctestMetadataAbstractElementFunction(
-    ...     testMetadataAbstractElementRequiredChildElements,
+    ...     testMetadataAbstractElementKnownChildElements,
     ...     metadataAbstractElementRequiredChildElementTest1(),
-    ...     requiredChildElements=["foo"])
+    ...     knownChildElements=["foo"])
     ['ERROR']
     """
     metadata = """<?xml version="1.0" encoding="UTF-8"?>
@@ -1532,12 +1535,28 @@ def metadataAbstractElementRequiredChildElementTest1():
 
 def metadataAbstractElementRequiredChildElementTest2():
     """
+    No child elements, child elements required. Report warning.
+
+    >>> doctestMetadataAbstractElementFunction(
+    ...     testMetadataAbstractElementKnownChildElements,
+    ...     metadataAbstractElementRequiredChildElementTest2(),
+    ...     knownChildElements=["foo"], missingChildElementsAlertLevel="warning")
+    ['WARNING']
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <test>
+    </test>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataAbstractElementRequiredChildElementTest3():
+    """
     Child elements, child elements required.
 
     >>> doctestMetadataAbstractElementFunction(
-    ...     testMetadataAbstractElementRequiredChildElements,
-    ...     metadataAbstractElementRequiredChildElementTest2(),
-    ...     requiredChildElements=["foo"])
+    ...     testMetadataAbstractElementKnownChildElements,
+    ...     metadataAbstractElementRequiredChildElementTest3(),
+    ...     knownChildElements=["foo"])
     []
     """
     metadata = """<?xml version="1.0" encoding="UTF-8"?>
@@ -1547,14 +1566,14 @@ def metadataAbstractElementRequiredChildElementTest2():
     """
     return ElementTree.fromstring(metadata)
 
-def metadataAbstractElementRequiredChildElementTest3():
+def metadataAbstractElementRequiredChildElementTest4():
     """
     Child elements, unknown child elements, child elements required.
 
     >>> doctestMetadataAbstractElementFunction(
-    ...     testMetadataAbstractElementRequiredChildElements,
-    ...     metadataAbstractElementRequiredChildElementTest3(),
-    ...     requiredChildElements=["foo"])
+    ...     testMetadataAbstractElementKnownChildElements,
+    ...     metadataAbstractElementRequiredChildElementTest4(),
+    ...     knownChildElements=["foo"])
     ['WARNING']
     """
     metadata = """<?xml version="1.0" encoding="UTF-8"?>
@@ -1565,14 +1584,14 @@ def metadataAbstractElementRequiredChildElementTest3():
     """
     return ElementTree.fromstring(metadata)
 
-def metadataAbstractElementRequiredChildElementTest4():
+def metadataAbstractElementRequiredChildElementTest5():
     """
     Unknown child elements, child elements required.
 
     >>> doctestMetadataAbstractElementFunction(
-    ...     testMetadataAbstractElementRequiredChildElements,
-    ...     metadataAbstractElementRequiredChildElementTest4(),
-    ...     requiredChildElements=["foo"])
+    ...     testMetadataAbstractElementKnownChildElements,
+    ...     metadataAbstractElementRequiredChildElementTest5(),
+    ...     knownChildElements=["foo"])
     ['WARNING', 'ERROR']
     """
     metadata = """<?xml version="1.0" encoding="UTF-8"?>

@@ -11,7 +11,6 @@ TO DO:
     - add some javascript that allows sections to be hidden.
         - show/hide test result levels
 - split length and offset tests into smaller functions that can be more easily doctested
-- missing text elements should be a warning, not an error
 """
 
 # import test
@@ -734,7 +733,7 @@ def testMetadataCredits(element, reporter):
     - unknown child elements
     """
     haveError = True
-    if testMetadataAbstractElement(element, reporter, tag="vendor", requiredChildElements=["credit"]):
+    if testMetadataAbstractElement(element, reporter, tag="vendor", knownChildElements=["credit"]):
         haveError = True
     if not haveError:
         reporter.logPass(message="The \"credits\" element is properly formatted.")
@@ -771,7 +770,7 @@ def testMetadataDescription(element, reporter):
     - duplicate languages
     """
     haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="description", requiredChildElements=["text"]):
+    if testMetadataAbstractElement(element, reporter, tag="description", knownChildElements=["text"], missingChildElementsAlertLevel="warning"):
         haveError = True
     # validate the text elements
     if testMetadataAbstractTextElements(element, reporter, "description"):
@@ -789,14 +788,14 @@ def testMetadataLicense(element, reporter):
     - optional attributes
     - no unknown attributes
     - no text
-    - has at least one text child element
+    - has at least one text child element (warn)
     - unknown child elements
     - text element validity
     - duplicate languages
     """
     optional = "url id".split(" ")
     haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="license", optionalAttributes=optional, requiredChildElements=["text"]):
+    if testMetadataAbstractElement(element, reporter, tag="license", optionalAttributes=optional, knownChildElements=["text"], missingChildElementsAlertLevel="warning"):
         haveError = True
     # validate the text elements
     if testMetadataAbstractTextElements(element, reporter, "license"):
@@ -819,7 +818,7 @@ def testMetadataCopyright(element, reporter):
     - duplicate languages
     """
     haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="copyright", requiredChildElements=["text"]):
+    if testMetadataAbstractElement(element, reporter, tag="copyright", knownChildElements=["text"], missingChildElementsAlertLevel="warning"):
         haveError = True
     # validate the text elements
     if testMetadataAbstractTextElements(element, reporter, "copyright"):
@@ -842,7 +841,7 @@ def testMetadataTrademark(element, reporter):
     - duplicate languages
     """
     haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="trademark", requiredChildElements=["text"]):
+    if testMetadataAbstractElement(element, reporter, tag="trademark", knownChildElements=["text"], missingChildElementsAlertLevel="warning"):
         haveError = True
     # validate the text elements
     if testMetadataAbstractTextElements(element, reporter, "trademark"):
@@ -871,7 +870,7 @@ def testMetadataLicensee(element, reporter):
 
 def testMetadataAbstractElement(element, reporter, tag,
     requiredAttributes=[], optionalAttributes=[], noteMissingOptionalAttributes=True,
-    requiredChildElements=[], requireText=False):
+    knownChildElements=[], missingChildElementsAlertLevel="error", requireText=False):
     haveError = False
     # missing required attribute
     if testMetadataAbstractElementRequiredAttributes(element, reporter, tag, requiredAttributes):
@@ -892,8 +891,8 @@ def testMetadataAbstractElement(element, reporter, tag,
         if testMetadataAbstractElementIllegalText(element, reporter, tag):
             haveError = True
     # child elements
-    if requiredChildElements:
-        if testMetadataAbstractElementRequiredChildElements(element, reporter, tag, requiredChildElements):
+    if knownChildElements:
+        if testMetadataAbstractElementKnownChildElements(element, reporter, tag, knownChildElements, missingChildElementsAlertLevel):
             haveError = True
     else:
         if testMetadataAbstractElementIllegalChildElements(element, reporter, tag):
@@ -951,19 +950,26 @@ def testMetadataAbstractElementIllegalText(element, reporter, tag):
         haveError = True
     return haveError
 
-def testMetadataAbstractElementRequiredChildElements(element, reporter, tag, requiredChildElements):
+def testMetadataAbstractElementKnownChildElements(element, reporter, tag, knownChildElements, missingChildElementsAlertLevel="error"):
     foundTags = set()
     for child in element:
-        if child.tag in requiredChildElements:
+        if child.tag in knownChildElements:
             foundTags.add(child.tag)
         else:
             reporter.logWarning(
                 message="Unknown \"%s\" child element in \"%s\" element." % (child.tag, tag),
                 information="This element will be unknown to user agents.")
     haveError = False
-    for childTag in sorted(requiredChildElements):
+    for childTag in sorted(knownChildElements):
         if childTag not in foundTags:
-            reporter.logError(message="Required child element \"%s\" is not defined in the \"%s\" element." % (childTag, tag))
+            if missingChildElementsAlertLevel == "error":
+                reporter.logError(message="Child element \"%s\" is not defined in the \"%s\" element." % (childTag, tag))
+            elif missingChildElementsAlertLevel == "warning":
+                reporter.logWarning(message="Child element \"%s\" is not defined in the \"%s\" element." % (childTag, tag))
+            elif missingChildElementsAlertLevel == "note":
+                reporter.logNote(message="Child element \"%s\" is not defined in the \"%s\" element." % (childTag, tag))
+            else:
+                raise NotImplementedError("Unknown missingChildElementsAlertLevel value: %s" % missingChildElementsAlertLevel)
             haveError = True
     return haveError
 
