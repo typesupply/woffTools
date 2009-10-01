@@ -189,7 +189,7 @@ class WOFFFont(TTFont):
                 origData = self.getTableData(tag)
             # table is in reader
             elif self.reader is not None:
-                if recompress:
+                if recompressTables:
                     origData = self.getTableData(tag)
                 else:
                     if self.verbose:
@@ -208,7 +208,7 @@ class WOFFFont(TTFont):
             metadata = f.getvalue()
             del f
         elif self.reader is not None:
-            if recompress:
+            if recompressTables:
                 metadata = self.reader.metadata
             else:
                 metadata, metaOrigLength, metaLength = self.reader.getCompressedMetadata()
