@@ -278,71 +278,74 @@ p.sampleText {
 """
 
 defaultJavascript = """
-function testResultToggleButtonHit(buttonID, className) {
-	// change the button title
-	var element = document.getElementById(buttonID);
-	if (element.innerText == "Show" ) {
-	 	element.innerText = "Hide";
-	}
-	else {
-	 	element.innerText = "Show";
-	}
-	// toggle the elements
-	var elements = getTestResults(className);
-	for (var e = 0; e < elements.length; ++e) {
-		toggleElement(elements[e]);
-	// toggle the info blocks
-	toggleInfoBlocks();
-	}
-}
 
-function getTestResults(className) {
-	var rows = document.getElementsByTagName("tr");
-	var found = Array();
-	for (var r = 0; r < rows.length; ++r) {
-		var row = rows[r];
-		if (row.className == className) {
-			found[found.length] = row;
+//<![CDATA[
+	function testResultToggleButtonHit(buttonID, className) {
+		// change the button title
+		var element = document.getElementById(buttonID);
+		if (element.innerHTML == "Show" ) {
+			element.innerHTML = "Hide";
+		}
+		else {
+			element.innerHTML = "Show";
+		}
+		// toggle the elements
+		var elements = getTestResults(className);
+		for (var e = 0; e < elements.length; ++e) {
+			toggleElement(elements[e]);
+		}
+		// toggle the info blocks
+		toggleInfoBlocks();
+	}
+
+	function getTestResults(className) {
+		var rows = document.getElementsByTagName("tr");
+		var found = Array();
+		for (var r = 0; r < rows.length; ++r) {
+			var row = rows[r];
+			if (row.className == className) {
+				found[found.length] = row;
+			}
+		}
+		return found;
+	}
+
+	function toggleElement(element) {
+		if (element.style.display != "none" ) {
+			element.style.display = "none";
+		}
+		else {
+			element.style.display = "";
 		}
 	}
-	return found;
-}
 
-function toggleElement(element) {
-	if (element.style.display != "none" ) {
-	 	element.style.display = "none";
-	}
-	else {
-	 	element.style.display = "";
-	}
-}
-
-function toggleInfoBlocks() {
-	var tables = document.getElementsByTagName("table")
-	for (var t = 0; t < tables.length; ++t) {
-		var table = tables[t];
-		if (table.className == "report") {
-			var haveVisibleRow = false;
-			var rows = table.rows;
-			for (var r = 0; r < rows.length; ++r) {
-				var row = rows[r];
-				if (row.style.display == "none") {
-					var i = 0;
+	function toggleInfoBlocks() {
+		var tables = document.getElementsByTagName("table")
+		for (var t = 0; t < tables.length; ++t) {
+			var table = tables[t];
+			if (table.className == "report") {
+				var haveVisibleRow = false;
+				var rows = table.rows;
+				for (var r = 0; r < rows.length; ++r) {
+					var row = rows[r];
+					if (row.style.display == "none") {
+						var i = 0;
+					}
+					else {
+						haveVisibleRow = true;
+					}
+				}
+				var div = table.parentNode;
+				if (haveVisibleRow == true) {
+					div.style.display = "";
 				}
 				else {
-					haveVisibleRow = true;
+					div.style.display = "none";
 				}
-			}
-			var div = table.parentElement;
-			if (haveVisibleRow == true) {
-				div.style.display = "";
-			}
-			else {
-				div.style.display = "none";
 			}
 		}
 	}
-}
+//]]>
 """
 
 def startHTML(title=None, cssReplacements={}):
