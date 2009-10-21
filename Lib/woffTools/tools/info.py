@@ -188,6 +188,8 @@ def writePrivateData(font, writer):
             if c:
                 hexa.append("".join(c))
             hexa = " ".join(hexa)
+            if len(hexa) != 35:
+                hexa += " " * (35 - len(hexa))
             printable = s.translate(hexFilter)
             result.append("%04X %s %s\n" % (i, hexa, printable))
         privateData = "".join(result)
