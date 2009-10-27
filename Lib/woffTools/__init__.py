@@ -324,7 +324,7 @@ class WOFFReader(object):
             raise AttributeError(attr)
         if attr == "privateData":
             self.file.seek(self.privOffset)
-            return self.file.read(self.privOffset)
+            return self.file.read(self.privLength)
         if attr == "metadata":
             self.file.seek(self.metaOffset)
             data = self.file.read(self.metaLength)
