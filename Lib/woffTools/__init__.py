@@ -442,8 +442,8 @@ class WOFFWriter(object):
         self._writePrivateData()
         # write the header
         self._writeHeader()
-        # close
-        self.file.close()
+        # go to the beginning of the file
+        self.file.seek(0)
 
     # header support
 
