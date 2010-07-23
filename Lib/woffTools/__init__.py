@@ -157,12 +157,13 @@ class WOFFFont(TTFont):
         tags = self.keys()
         if "GlyphOrder" in tags:
             tags.remove("GlyphOrder")
-        if "DSIG" in tags and self._tableOrder is None or (set(self._tableOrder) != set(tags)):
-            raise WOFFLibError("A complete table order must be supplied when saving a font with a 'DSIG' table.")
-        if "DSIG" in tags and reorderTables:
-            raise WOFFLibError("Tables can not be reordered when a 'DSIG' table is in the font. Set reorderTables to False.")
-        if "DSIG" in tags and recalculateHeadChecksum:
-            raise WOFFLibError("The 'head' table checkSumAdjustment can not be recalculated when a 'DSIG' table is in the font.")
+        if "DSIG" in tags:
+            if self._tableOrder is None or (set(self._tableOrder) != set(tags)):
+                raise WOFFLibError("A complete table order must be supplied when saving a font with a 'DSIG' table.")
+            elif reorderTables:
+                raise WOFFLibError("Tables can not be reordered when a 'DSIG' table is in the font. Set reorderTables to False.")
+            elif recalculateHeadChecksum:
+                raise WOFFLibError("The 'head' table checkSumAdjustment can not be recalculated when a 'DSIG' table is in the font.")
         # sort the tags if necessary
         if reorderTables:
             tags = sortedTagList(tags)
