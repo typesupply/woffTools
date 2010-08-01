@@ -647,3 +647,223 @@ def calcTableChecksum(tag, data):
         checksum = calcChecksum(data)
     return checksum
 
+
+# ---------------
+# SFNT Validation
+# ---------------
+
+def preflightSFNT(data):
+    errors = []
+    # XXX do some sanity checking first?
+    # unpack the header
+    headerData = data[:sfntDirectorySize]
+    header = sstruct.unpack(sfntDirectoryFormat, headerData)
+    # unpack the table directory
+    numTables = header["numTables"]
+    directoryData = data[sfntDirectorySize : sfntDirectorySize + (sfntDirectoryEntrySize * numTables)]
+    tableDirectory = []
+    for index in range(numTables):
+        entry = sstruct.unpack(sfntDirectoryEntryFormat, directoryData[:sfntDirectoryEntrySize])
+        offset = entry["offset"]
+        length = entry["length"]
+        entry["data"] = data[offset:offset+length]
+        tableDirectory.append(entry)
+        directoryData = directoryData[sfntDirectoryEntrySize:]
+    # test for padding
+    errors += _testPadding(tableDirectory)
+    # test the final table padding
+    errors += _testFinalTablePadding(len(data), numTables, tableDirectory[-1]["tag"])
+    # test for gaps
+    errors += _testGaps(tableDirectory)
+    # test for a gap at the end of the file
+    errors += _testGapAfterFinalTable(len(data), tableDirectory)
+    # validate checksums
+    errors += _testCheckSums(tableDirectory)
+    # done.
+    return errors
+
+
+def _testPadding(tableDirectory):
+    """
+    >>> test = [
+    ...     dict(tag="test", offset=1)
+    ... ]
+    >>> bool(_testPadding(test))
+    True
+    >>> test = [
+    ...     dict(tag="test", offset=2)
+    ... ]
+    >>> bool(_testPadding(test))
+    True
+    >>> test = [
+    ...     dict(tag="test", offset=3)
+    ... ]
+    >>> bool(_testPadding(test))
+    True
+    >>> test = [
+    ...     dict(tag="test", offset=4)
+    ... ]
+    >>> bool(_testPadding(test))
+    False
+    """
+    errors = []
+    prevTable = None
+    for entry in tableDirectory:
+        offset = entry["offset"]
+        if offset % 4:
+            errors.append("The %s table is not properly padded." % prevTable)
+        prevTable = entry["tag"]
+    return errors
+
+def _testFinalTablePadding(dataLength, numTables, finalTableTag):
+    """
+    >>> bool(_testFinalTablePadding(
+    ...     sfntDirectorySize + sfntDirectoryEntrySize + 1,
+    ...     1,
+    ...     "test"
+    ... ))
+    True
+    >>> bool(_testFinalTablePadding(
+    ...     sfntDirectorySize + sfntDirectoryEntrySize + 2,
+    ...     1,
+    ...     "test"
+    ... ))
+    True
+    >>> bool(_testFinalTablePadding(
+    ...     sfntDirectorySize + sfntDirectoryEntrySize + 3,
+    ...     1,
+    ...     "test"
+    ... ))
+    True
+    >>> bool(_testFinalTablePadding(
+    ...     sfntDirectorySize + sfntDirectoryEntrySize + 4,
+    ...     1,
+    ...     "test"
+    ... ))
+    False
+    """
+    errors = []
+    if (dataLength - (sfntDirectorySize + (sfntDirectoryEntrySize * numTables))) % 4:
+        errors.append("The final table (%s) is not properly padded." % finalTableTag)
+    return errors
+
+def _testGaps(tableDirectory):
+    """
+    >>> start = sfntDirectorySize + (sfntDirectoryEntrySize * 2)
+    >>> test = [
+    ...     dict(offset=start, length=1, tag="test1"),
+    ...     dict(offset=start+2, length=1, tag="test2"),
+    ... ]
+    >>> bool(_testGaps(test))
+    False
+    >>> test = [
+    ...     dict(offset=start, length=1, tag="test1"),
+    ...     dict(offset=start+3, length=1, tag="test2"),
+    ... ]
+    >>> bool(_testGaps(test))
+    False
+    >>> test = [
+    ...     dict(offset=start, length=1, tag="test1"),
+    ...     dict(offset=start+4, length=1, tag="test2"),
+    ... ]
+    >>> bool(_testGaps(test))
+    False
+    >>> test = [
+    ...     dict(offset=start, length=1, tag="test1"),
+    ...     dict(offset=start+5, length=1, tag="test2"),
+    ... ]
+    >>> bool(_testGaps(test))
+    True
+    """
+    errors = []
+    sorter = []
+    for entry in tableDirectory:
+        sorter.append((entry["offset"], entry))
+    prevTag = None
+    prevEnd = None
+    for offset, entry in sorted(sorter):
+        length = entry["length"]
+        tag = entry["tag"]
+        if prevEnd is None:
+            prevEnd = offset + length
+            prevTag = tag
+        else:
+            if offset - prevEnd > 3:
+                errors.append("Improper padding between the %s and %s tables." % (prevTag, tag))
+            prevEnd = offset + length
+            prevTag = tag
+    return errors
+
+def _testGapAfterFinalTable(dataLength, tableDirectory):
+    """
+    >>> start = sfntDirectorySize + (sfntDirectoryEntrySize * 2)
+    >>> test = [
+    ...     dict(offset=start, length=1, tag="test")
+    ... ]
+    >>> bool(_testGapAfterFinalTable(start + 1, test))
+    False
+    >>> start = sfntDirectorySize + (sfntDirectoryEntrySize * 2)
+    >>> test = [
+    ...     dict(offset=start, length=1, tag="test")
+    ... ]
+    >>> bool(_testGapAfterFinalTable(start + 2, test))
+    False
+    >>> start = sfntDirectorySize + (sfntDirectoryEntrySize * 2)
+    >>> test = [
+    ...     dict(offset=start, length=1, tag="test")
+    ... ]
+    >>> bool(_testGapAfterFinalTable(start + 3, test))
+    False
+    >>> start = sfntDirectorySize + (sfntDirectoryEntrySize * 2)
+    >>> test = [
+    ...     dict(offset=start, length=1, tag="test")
+    ... ]
+    >>> bool(_testGapAfterFinalTable(start + 4, test))
+    False
+    >>> start = sfntDirectorySize + (sfntDirectoryEntrySize * 2)
+    >>> test = [
+    ...     dict(offset=start, length=1, tag="test")
+    ... ]
+    >>> bool(_testGapAfterFinalTable(start + 5, test))
+    True
+    """
+    errors = []
+    sorter = []
+    for entry in tableDirectory:
+        sorter.append((entry["offset"], entry))
+    entry = sorted(sorter)[-1]
+    offset = entry[-1]["offset"]
+    length = entry[-1]["length"]
+    lastPosition = offset + length
+    if dataLength - lastPosition > 3:
+        errors.append("Improper padding at the end of the file.")
+    return errors
+
+def _testCheckSums(tableDirectory):
+    """
+    >>> data = "0" * 44
+    >>> checkSum = calcTableChecksum(data, "test")
+    >>> test = [
+    ...     dict(data=data, checkSum=checkSum, tag="test")
+    ... ]
+    >>> bool(_testCheckSums(test))
+    False
+    >>> test = [
+    ...     dict(data=data, checkSum=checkSum+1, tag="test")
+    ... ]
+    >>> bool(_testCheckSums(test))
+    True
+    """
+    errors = []
+    for entry in tableDirectory:
+        tag = entry["tag"]
+        checkSum = entry["checkSum"]
+        shouldBe = calcTableChecksum(tag, entry["data"])
+        if checkSum != shouldBe:
+            errors.append("Invalid checksum for the %s table." % tag)
+    return errors
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod(verbose=False)
