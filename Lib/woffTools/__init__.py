@@ -833,26 +833,20 @@ def _testGaps(tableDirectory):
     """
     >>> start = sfntDirectorySize + (sfntDirectoryEntrySize * 2)
     >>> test = [
-    ...     dict(offset=start, length=1, tag="test1"),
-    ...     dict(offset=start+2, length=1, tag="test2"),
+    ...     dict(offset=start, length=4, tag="test1"),
+    ...     dict(offset=start+4, length=4, tag="test2"),
     ... ]
     >>> bool(_testGaps(test))
     False
     >>> test = [
-    ...     dict(offset=start, length=1, tag="test1"),
-    ...     dict(offset=start+3, length=1, tag="test2"),
+    ...     dict(offset=start, length=4, tag="test1"),
+    ...     dict(offset=start+5, length=4, tag="test2"),
     ... ]
     >>> bool(_testGaps(test))
-    False
+    True
     >>> test = [
-    ...     dict(offset=start, length=1, tag="test1"),
-    ...     dict(offset=start+4, length=1, tag="test2"),
-    ... ]
-    >>> bool(_testGaps(test))
-    False
-    >>> test = [
-    ...     dict(offset=start, length=1, tag="test1"),
-    ...     dict(offset=start+5, length=1, tag="test2"),
+    ...     dict(offset=start, length=4, tag="test1"),
+    ...     dict(offset=start+8, length=4, tag="test2"),
     ... ]
     >>> bool(_testGaps(test))
     True
@@ -865,12 +859,13 @@ def _testGaps(tableDirectory):
     prevEnd = None
     for offset, entry in sorted(sorter):
         length = entry["length"]
+        length = calc4BytePaddedLength(length)
         tag = entry["tag"]
         if prevEnd is None:
             prevEnd = offset + length
             prevTag = tag
         else:
-            if offset - prevEnd > 3:
+            if offset - prevEnd != 0:
                 errors.append("Improper padding between the %s and %s tables." % (prevTag, tag))
             prevEnd = offset + length
             prevTag = tag
@@ -882,31 +877,17 @@ def _testGapAfterFinalTable(dataLength, tableDirectory):
     >>> test = [
     ...     dict(offset=start, length=1, tag="test")
     ... ]
-    >>> bool(_testGapAfterFinalTable(start + 1, test))
-    False
-    >>> start = sfntDirectorySize + (sfntDirectoryEntrySize * 2)
-    >>> test = [
-    ...     dict(offset=start, length=1, tag="test")
-    ... ]
-    >>> bool(_testGapAfterFinalTable(start + 2, test))
-    False
-    >>> start = sfntDirectorySize + (sfntDirectoryEntrySize * 2)
-    >>> test = [
-    ...     dict(offset=start, length=1, tag="test")
-    ... ]
-    >>> bool(_testGapAfterFinalTable(start + 3, test))
-    False
-    >>> start = sfntDirectorySize + (sfntDirectoryEntrySize * 2)
-    >>> test = [
-    ...     dict(offset=start, length=1, tag="test")
-    ... ]
     >>> bool(_testGapAfterFinalTable(start + 4, test))
     False
-    >>> start = sfntDirectorySize + (sfntDirectoryEntrySize * 2)
     >>> test = [
     ...     dict(offset=start, length=1, tag="test")
     ... ]
     >>> bool(_testGapAfterFinalTable(start + 5, test))
+    True
+    >>> test = [
+    ...     dict(offset=start, length=1, tag="test")
+    ... ]
+    >>> bool(_testGapAfterFinalTable(start + 8, test))
     True
     """
     errors = []
@@ -916,8 +897,9 @@ def _testGapAfterFinalTable(dataLength, tableDirectory):
     entry = sorted(sorter)[-1]
     offset = entry[-1]["offset"]
     length = entry[-1]["length"]
+    length = calc4BytePaddedLength(length)
     lastPosition = offset + length
-    if dataLength - lastPosition > 3:
+    if dataLength - lastPosition != 0:
         errors.append("Improper padding at the end of the file.")
     return errors
 
