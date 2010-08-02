@@ -654,7 +654,6 @@ def calcTableChecksum(tag, data):
 
 def preflightSFNT(data):
     errors = []
-    # XXX do some sanity checking first?
     # unpack the header
     headerData = data[:sfntDirectorySize]
     header = sstruct.unpack(sfntDirectoryFormat, headerData)
@@ -664,11 +663,20 @@ def preflightSFNT(data):
     tableDirectory = []
     for index in range(numTables):
         entry = sstruct.unpack(sfntDirectoryEntryFormat, directoryData[:sfntDirectoryEntrySize])
+        tableDirectory.append(entry)
+        directoryData = directoryData[sfntDirectoryEntrySize:]
+    # sanity testing
+    errors += _testOffsetValidity(len(data), tableDirectory)
+    errors += _testLengthValidity(len(data), tableDirectory)
+    # if one or more errors have already been found, something
+    # is very wrong and this should come to a screeching halt.
+    if errors:
+        return errors
+    # lod the table data
+    for entry in tableDirectory:
         offset = entry["offset"]
         length = entry["length"]
         entry["data"] = data[offset:offset+length]
-        tableDirectory.append(entry)
-        directoryData = directoryData[sfntDirectoryEntrySize:]
     # test for padding
     errors += _testPadding(tableDirectory)
     # test the final table padding
@@ -682,6 +690,58 @@ def preflightSFNT(data):
     # done.
     return errors
 
+def _testOffsetValidity(dataLength, tableDirectory):
+    """
+    >>> test = [
+    ...     dict(tag="test", offset=44)
+    ... ]
+    >>> bool(_testOffsetValidity(45, test))
+    False
+    >>> test = [
+    ...     dict(tag="test", offset=1)
+    ... ]
+    >>> bool(_testOffsetValidity(45, test))
+    True
+    >>> test = [
+    ...     dict(tag="test", offset=46)
+    ... ]
+    >>> bool(_testOffsetValidity(45, test))
+    True
+    """
+    errors = []
+    numTables = len(tableDirectory)
+    minOffset = sfntDirectorySize + (sfntDirectoryEntrySize * numTables)
+    for entry in tableDirectory:
+        offset = entry["offset"]
+        tag = entry["tag"]
+        if offset < minOffset:
+            errors.append("The offset to the %s table is not valid." % tag)
+        if offset > dataLength:
+            errors.append("The offset to the %s table is not valid." % tag)
+    return errors
+
+def _testLengthValidity(dataLength, tableDirectory):
+    """
+    >>> test = [
+    ...     dict(tag="test", offset=44, length=1)
+    ... ]
+    >>> bool(_testLengthValidity(45, test))
+    False
+    >>> test = [
+    ...     dict(tag="test", offset=44, length=2)
+    ... ]
+    >>> bool(_testLengthValidity(45, test))
+    True
+    """
+    errors = []
+    for entry in tableDirectory:
+        offset = entry["offset"]
+        length = entry["length"]
+        tag = entry["tag"]
+        end = offset + length
+        if end > dataLength:
+            errors.append("The length of the %s table is not valid." % tag)
+    return errors
 
 def _testPadding(tableDirectory):
     """
@@ -842,7 +902,7 @@ def _testGapAfterFinalTable(dataLength, tableDirectory):
 def _testCheckSums(tableDirectory):
     """
     >>> data = "0" * 44
-    >>> checkSum = calcTableChecksum(data, "test")
+    >>> checkSum = calcTableChecksum("test", data)
     >>> test = [
     ...     dict(data=data, checkSum=checkSum, tag="test")
     ... ]
@@ -858,7 +918,8 @@ def _testCheckSums(tableDirectory):
     for entry in tableDirectory:
         tag = entry["tag"]
         checkSum = entry["checkSum"]
-        shouldBe = calcTableChecksum(tag, entry["data"])
+        data = entry["data"]
+        shouldBe = calcTableChecksum(tag, data)
         if checkSum != shouldBe:
             errors.append("Invalid checksum for the %s table." % tag)
     return errors
