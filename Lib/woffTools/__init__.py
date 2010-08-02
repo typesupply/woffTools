@@ -648,11 +648,11 @@ def calcTableChecksum(tag, data):
     return checksum
 
 
-# ---------------
-# SFNT Validation
-# ---------------
+# ----------------
+# SFNT Conformance
+# ----------------
 
-def preflightSFNT(data):
+def checkSFNTConformance(data):
     errors = []
     # unpack the header
     headerData = data[:sfntDirectorySize]
