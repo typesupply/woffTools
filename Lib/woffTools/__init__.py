@@ -653,6 +653,28 @@ def calcTableChecksum(tag, data):
 # ----------------
 
 def checkSFNTConformance(data):
+    """
+    This function checks a SFNT file to see if it meets
+    the conformance recomendations in the WOFF specification.
+    This includes:
+    - offset to each table must be after the table directory
+      and before the end of the file.
+    - offset + length of each table must not extend past
+      the end of the file.
+    - tables must be padded to 4 byte boundaries.
+    - the final table must be padded to a 4 byte boundary.
+    - the gaps between table data blocks must not be more
+      than necessary to pad the table to a 4 byte boundary.
+    - there gap between the end of the final table and
+      the end of the file must not be more than necessary
+      to pad the table to a four byte boundary.
+    - the checksums for each table in the table directory
+      must be correct.
+
+    The returned value of this function will be a list.
+    If any errors were found, they will be represented
+    as strings in the list.
+    """
     errors = []
     # unpack the header
     headerData = data[:sfntDirectorySize]
