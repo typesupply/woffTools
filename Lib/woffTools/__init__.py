@@ -652,7 +652,7 @@ def calcTableChecksum(tag, data):
 # SFNT Conformance
 # ----------------
 
-def checkSFNTConformance(data):
+def checkSFNTConformance(file):
     """
     This function checks a SFNT file to see if it meets
     the conformance recomendations in the WOFF specification.
@@ -675,6 +675,15 @@ def checkSFNTConformance(data):
     If any errors were found, they will be represented
     as strings in the list.
     """
+    # load the data
+    closeFile = False
+    if not hasattr(file, "read"):
+        file = open(file, "rb")
+        closeFile = True
+    data = file.read()
+    if closeFile:
+        file.close()
+    # storage
     errors = []
     # unpack the header
     headerData = data[:sfntDirectorySize]
