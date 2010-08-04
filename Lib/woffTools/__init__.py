@@ -422,6 +422,9 @@ class WOFFWriter(object):
         # first, handle the checkSumAdjustment
         if self.recalculateHeadChecksum and "head" in self.tables:
             self._handleHeadChecksum()
+        # check the table directory conformance
+        for tag, (index, entry, data) in sorted(self.tables.items()):
+            self._checkTableConformance(entry, data)
         # write the header
         header = sstruct.pack(woffHeaderFormat, self)
         self.file.seek(0)
@@ -488,6 +491,34 @@ class WOFFWriter(object):
         if entryOnly:
             return entry
         return entry, data
+
+    def _checkTableConformance(self, entry, data):
+        """
+        Check the conformance of the table directory entries.
+        These must be checked because the origChecksum, origLength
+        and compLength can be set by an outside caller.
+        """
+        if self.verbose:
+            debugmsg("checking conformance of '%s' table" % entry.tag)
+        # origLength must be less than or equal to compLength
+        if entry.origLength < entry.compLength:
+            raise WOFFLibError("origLength and compLength are not correct in the '%s' table entry." % entry.tag)
+        # unpack the data as needed
+        if entry.origLength > entry.compLength:
+            origData = zlib.decompress(data)
+            compData = data
+        else:
+            origData = data
+            compData = data
+        # the origLength entry must match the actual length
+        if entry.origLength != len(origData):
+            raise WOFFLibError("origLength is not correct in the '%s' table entry." % entry.tag)
+        # the checksum must be correct
+        if entry.origChecksum != calcTableChecksum(entry.tag, origData):
+            raise WOFFLibError("origChecksum is not correct in the '%s' table entry." % entry.tag)
+        # the compLength must be correct
+        if entry.compLength != len(compData):
+            raise WOFFLibError("compLength is not correct in the '%s' table entry." % entry.tag)
 
     def _handleHeadChecksum(self):
         if self.verbose:
