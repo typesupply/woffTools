@@ -8,6 +8,10 @@ This can also be used as a command line tool for validating WOFF files.
 """
 TO DO:
 - split length and offset tests into smaller functions that can be more easily doctested
+- test for proper ordering of table data, metadata, private data
+- test metadata extension element
+- test for gaps in table data
+- test for overlapping tables
 """
 
 # import test
@@ -54,17 +58,17 @@ headerFormat = """
     > # big endian
     signature:      4s
     flavor:         4s
-    length:         l
+    length:         L
     numTables:      H
     reserved:       H
-    totalSfntSize:  l
+    totalSfntSize:  L
     majorVersion:   H
     minorVersion:   H
-    metaOffset:     l
-    metaLength:     l
-    metaOrigLength: l
-    privOffset:     l
-    privLength:     l
+    metaOffset:     L
+    metaLength:     L
+    metaOrigLength: L
+    privOffset:     L
+    privLength:     L
 """
 headerSize = sstruct.calcsize(headerFormat)
 
@@ -218,10 +222,10 @@ def testHeaderMajorVersionAndMinorVersion(data, reporter):
 directoryFormat = """
     > # big endian
     tag:            4s
-    offset:         l
-    compLength:     l
-    origLength:     l
-    origChecksum:   l
+    offset:         L
+    compLength:     L
+    origLength:     L
+    origChecksum:   L
 """
 directorySize = sstruct.calcsize(directoryFormat)
 

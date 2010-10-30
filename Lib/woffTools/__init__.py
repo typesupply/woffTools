@@ -240,17 +240,17 @@ woffHeaderFormat = """
     > # big endian
     signature:      4s
     flavor:         4s
-    length:         l
+    length:         L
     numTables:      H
     reserved:       H
-    totalSFNTSize:  l
+    totalSFNTSize:  L
     majorVersion:   H
     minorVersion:   H
-    metaOffset:     l
-    metaLength:     l
-    metaOrigLength: l
-    privOffset:     l
-    privLength:     l
+    metaOffset:     L
+    metaLength:     L
+    metaOrigLength: L
+    privOffset:     L
+    privLength:     L
 """
 woffHeaderSize = sstruct.calcsize(woffHeaderFormat)
 
@@ -383,7 +383,7 @@ class WOFFWriter(object):
         # the compression will be handled later.
         if self.recalculateHeadChecksum and tag == "head":
             # decompress
-            if compLength is not None:
+            if compLength is not None and compLength < origLength:
                 data = zlib.decompress(data)
             entry = self._prepTable(tag, data, origLength=len(data), entryOnly=True)
         # compress
@@ -637,10 +637,10 @@ class WOFFWriter(object):
 woffDirectoryEntryFormat = """
     > # big endian
     tag:            4s
-    offset:         l
-    compLength:     l
-    origLength:     l
-    origChecksum:   l
+    offset:         L
+    compLength:     L
+    origLength:     L
+    origChecksum:   L
 """
 woffDirectoryEntrySize = sstruct.calcsize(woffDirectoryEntryFormat)
 
