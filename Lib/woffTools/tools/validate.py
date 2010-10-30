@@ -1346,7 +1346,8 @@ def calcChecksum(tag, data):
     data = padData(data)
     data = struct.unpack(">%dL" % (len(data) / 4), data)
     a = numpy.array(tuple([0]) + data, numpy.uint32)
-    return int(numpy.sum(a, dtype=numpy.uint32))
+    cs = int(numpy.sum(a, dtype=numpy.uint32))
+    return int(cs)
 
 def calcHeadCheckSum(data):
     header = unpackHeader(data)
