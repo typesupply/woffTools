@@ -12,6 +12,7 @@ TO DO:
 - test metadata extension element
 - test for gaps in table data
 - test for overlapping tables
+- the checksum calculation uses the function sin FontTools. those seem to be incorrect.
 """
 
 # import test
@@ -1343,10 +1344,9 @@ def calcChecksum(tag, data):
     if tag == "head":
         data = data[:8] + '\0\0\0\0' + data[12:]
     data = padData(data)
-    a = numpy.fromstring(struct.pack(">l", 0) + data, numpy.int32)
-    if sys.byteorder != "big":
-        a = a.byteswap()
-    return numpy.add.reduce(a)
+    data = struct.unpack(">%dL" % (len(data) / 4), data)
+    a = numpy.array(tuple([0]) + data, numpy.uint32)
+    return int(numpy.sum(a, dtype=numpy.uint32))
 
 def calcHeadCheckSum(data):
     header = unpackHeader(data)
@@ -1387,14 +1387,14 @@ def calcHeadCheckSum(data):
         directory += sfntEntry.toString()
     # calculate
     tags = sfntEntries.keys()
-    checksums = numpy.zeros(len(tags) + 1, numpy.int32)
+    checksums = numpy.zeros(len(tags) + 1, numpy.uint32)
     for index, tag in enumerate(tags):
         checksums[index] = sfntEntries[tag].checkSum
     directoryEnd = sfntDirectorySize + (len(tags) * sfntDirectoryEntrySize)
     assert directoryEnd == len(directory)
     checksums[-1] = calcChecksum(None, directory)
-    checksum = numpy.add.reduce(checksums)
-    checkSumAdjustment = numpy.array(0xb1b0afbaL - 0x100000000L, numpy.int32) - checksum
+    checksum = numpy.add.reduce(checksums, dtype=numpy.uint32)
+    checkSumAdjustment = int(numpy.subtract.reduce(numpy.array([0xB1B0AFBA, checksum], numpy.uint32)))
     return checkSumAdjustment
 
 def padData(data):
