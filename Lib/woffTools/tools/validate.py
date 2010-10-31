@@ -27,7 +27,6 @@ import optparse
 from xml.etree import ElementTree
 from xml.parsers.expat import ExpatError
 
-
 # ----------------------
 # Support: struct Helper
 # ----------------------
@@ -76,9 +75,9 @@ def _structGetFormat(format):
     return _structFormatCache[format]
 
 
-# ------
-# Header
-# ------
+# -------------
+# Tests: Header
+# -------------
 
 headerFormat = """
     signature:      4s
@@ -240,9 +239,9 @@ def testHeaderMajorVersionAndMinorVersion(data, reporter):
         reporter.logPass(message="The major version and minor version are valid numbers.")
 
 
-# ---------------
-# Table Directory
-# ---------------
+# ----------------------
+# Tests: Table Directory
+# ----------------------
 
 directoryFormat = """
     tag:            4s
@@ -379,9 +378,9 @@ def testDirectoryChecksums(data, reporter):
             reporter.logPass(message="The \"%s\" table directory entry original checksum is correct." % tag)
 
 
-# ------
-# Tables
-# ------
+# -------------
+# Tests: Tables
+# -------------
 
 def testTableDataStart(data, reporter):
     """
@@ -493,9 +492,9 @@ def testDSIG(data, reporter):
     reporter.logNote(message="The font does not contain a \"DSIG\" table.")
 
 
-# --------
-# Metadata
-# --------
+# ----------------
+# Tests: Metadata
+# ----------------
 
 def shouldSkipMetadataTest(data, reporter):
     """
@@ -1042,9 +1041,9 @@ def testMetadataAbstractTextElementLanguages(element, reporter, tag):
     return haveError
 
 
-# ------------
-# Private Data
-# ------------
+# -------------------
+# Tests: Private Data
+# -------------------
 
 def testPrivateDataOffsetAndLength(data, reporter):
     """
@@ -1206,7 +1205,7 @@ def calcHeadChecksum(data):
     return checkSum
 
 
-# ---------
+# ---------------------------------
 # Support: Reporters and HTML Stuff
 # ---------------------------------
 
