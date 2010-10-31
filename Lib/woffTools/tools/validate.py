@@ -20,10 +20,12 @@ TO DO:
 # import
 
 import os
+import time
 import sys
 import struct
 import zlib
 import optparse
+from cStringIO import StringIO
 from xml.etree import ElementTree
 from xml.parsers.expat import ExpatError
 
@@ -377,7 +379,6 @@ def testDirectoryChecksums(data, reporter):
         else:
             reporter.logPass(message="The \"%s\" table directory entry original checksum is correct." % tag)
 
-
 # -------------
 # Tests: Tables
 # -------------
@@ -490,7 +491,6 @@ def testDSIG(data, reporter):
                 information="If you need this functionality, contact the developer of this tool.")
             return
     reporter.logNote(message="The font does not contain a \"DSIG\" table.")
-
 
 # ----------------
 # Tests: Metadata
@@ -1040,7 +1040,6 @@ def testMetadataAbstractTextElementLanguages(element, reporter, tag):
             reporter.logError(message="More than one instance of language \"%s\" in the \"%s\" element." % (lang, tag))
     return haveError
 
-
 # -------------------
 # Tests: Private Data
 # -------------------
@@ -1204,6 +1203,59 @@ def calcHeadChecksum(data):
     checkSum = 0xB1B0AFBA - checkSum
     return checkSum
 
+# ------------------
+# Support XML Writer
+# ------------------
+
+class XMLWriter(object):
+
+    def __init__(self):
+        self._root = None
+        self._elements = []
+
+    def simpletag(self, tag, **kwargs):
+        ElementTree.SubElement(self._elements[-1], tag, **kwargs)
+
+    def begintag(self, tag, **kwargs):
+        if self._elements:
+            s = ElementTree.SubElement(self._elements[-1], tag, **kwargs)
+        else:
+            s = ElementTree.Element(tag, **kwargs)
+            if self._root is None:
+                self._root = s
+        self._elements.append(s)
+
+    def endtag(self, tag):
+        assert self._elements[-1].tag == tag
+        del self._elements[-1]
+
+    def write(self, text):
+        if self._elements[-1].text is None:
+            self._elements[-1].text = text
+        else:
+            self._elements[-1].text += text
+
+    def compile(self, encoding="utf-8"):
+        f = StringIO()
+        tree = ElementTree.ElementTree(self._root)
+        indent(tree.getroot())
+        tree.write(f, encoding=encoding)
+        text = f.getvalue()
+        del f
+        return text
+
+def indent(elem, level=0):
+    # this is from http://effbot.python-hosting.com/file/effbotlib/ElementTree.py
+    i = "\n" + level * "\t"
+    if len(elem):
+        if not elem.text or not elem.text.strip():
+            elem.text = i + "\t"
+        for e in elem:
+            indent(e, level + 1)
+        if not e.tail or not e.tail.strip():
+            e.tail = i
+    if level and (not elem.tail or not elem.tail.strip()):
+        elem.tail = i
 
 # ---------------------------------
 # Support: Reporters and HTML Stuff
@@ -1806,31 +1858,31 @@ def findUniqueFileName(path):
 # ---------------
 
 tests = [
-    ("Header - Size",                       "h-size",               testHeaderSize),
-    ("Header - Structure",                  "h-structure",          testHeaderStructure),
-    ("Header - Signature",                  "h-signature",          testHeaderSignature),
-    ("Header - Flavor",                     "h-flavor",             testHeaderFlavor),
-    ("Header - Length",                     "h-length",             testHeaderLength),
-    ("Header - Reserved",                   "h-reserved",           testHeaderReserved),
-    ("Header - Total sfnt Size",            "h-sfntsize",           testHeaderTotalSFNTSize),
-    ("Header - Version",                    "h-version",            testHeaderMajorVersionAndMinorVersion),
-    ("Header - Number of Tables",           "h-numtables",          testHeaderNumTables),
-    ("Directory - Table Order",             "d-order",              testDirectoryTableOrder),
-    ("Directory - Table Borders",           "d-borders",            testDirectoryBorders),
-    ("Directory - Compressed Length",       "d-complength",         testDirectoryCompressedLength),
-    ("Directory - Table Checksums",         "d-checksum",           testDirectoryChecksums),
-    ("Tables - Start Position",             "t-start",              testTableDataStart),
-    ("Tables - Padding",                    "t-padding",            testTablePadding),
-    ("Tables - Decompression",              "t-decompression",      testTableDecompression),
-    ("Tables - Original Length",            "t-origlength",         testDirectoryDecompressedLength),
-    ("Tables - checkSumAdjustment",         "t-headchecksum",       testHeadCheckSumAdjustment),
-    ("Tables - DSIG",                       "t-dsig",               testDSIG),
-    ("Metadata - Offset and Length",        "m-offsetlength",       testMetadataOffsetAndLength),
-    ("Metadata - Decompression",            "m-decompression",      testMetadataDecompression),
-    ("Metadata - Original Length",          "m-metaOriglength",     testMetadataDecompressedLength),
-    ("Metadata - Parse",                    "m-parse",              testMetadataParse),
-    ("Metadata - Structure",                "m-structure",          testMetadataStructure),
-    ("Private Data - Offset and Length",    "m-structure",          testPrivateDataOffsetAndLength),
+    ("Header - Size",                    testHeaderSize),
+    ("Header - Structure",               testHeaderStructure),
+    ("Header - Signature",               testHeaderSignature),
+    ("Header - Flavor",                  testHeaderFlavor),
+    ("Header - Length",                  testHeaderLength),
+    ("Header - Reserved",                testHeaderReserved),
+    ("Header - Total sfnt Size",         testHeaderTotalSFNTSize),
+    ("Header - Version",                 testHeaderMajorVersionAndMinorVersion),
+    ("Header - Number of Tables",        testHeaderNumTables),
+    ("Directory - Table Order",          testDirectoryTableOrder),
+    ("Directory - Table Borders",        testDirectoryBorders),
+    ("Directory - Compressed Length",    testDirectoryCompressedLength),
+    ("Directory - Table Checksums",      testDirectoryChecksums),
+    ("Tables - Start Position",          testTableDataStart),
+    ("Tables - Padding",                 testTablePadding),
+    ("Tables - Decompression",           testTableDecompression),
+    ("Tables - Original Length",         testDirectoryDecompressedLength),
+    ("Tables - checkSumAdjustment",      testHeadCheckSumAdjustment),
+    ("Tables - DSIG",                    testDSIG),
+    ("Metadata - Offset and Length",     testMetadataOffsetAndLength),
+    ("Metadata - Decompression",         testMetadataDecompression),
+    ("Metadata - Original Length",       testMetadataDecompressedLength),
+    ("Metadata - Parse",                 testMetadataParse),
+    ("Metadata - Structure",             testMetadataStructure),
+    ("Private Data - Offset and Length", testPrivateDataOffsetAndLength),
 ]
 
 def validateFont(path, options, writeFile=True):
@@ -1840,14 +1892,11 @@ def validateFont(path, options, writeFile=True):
     reporter.logFileInfo("FILE", os.path.basename(path))
     reporter.logFileInfo("DIRECTORY", os.path.dirname(path))
     # run tests and log results
-    skip = options.excludeTests
     f = open(path, "rb")
     data = f.read()
     f.close()
     shouldStop = False
-    for title, tag, func in tests:
-        if tag in skip:
-            continue
+    for title, func in tests:
         reporter.logTestTitle(title)
         shouldStop = func(data, reporter)
         if shouldStop:
@@ -1888,13 +1937,9 @@ or more WOFF files and issues a detailed report about
 the validity of the file structure. It does not validate
 the wrapped font data.
 """
-identifiers = []
-for name, identifier, func in tests:
-    identifiers.append(identifier)
 
 def main():
     parser = optparse.OptionParser(usage=usage, description=description, version="%prog 0.1beta")
-    parser.add_option("-x", action="append", dest="excludeTests", help="Exclude tests. Supply an identifier from this list: %s" % ", ".join(identifiers))
     parser.add_option("-d", dest="outputDirectory", help="Output directory. The default is to output the report into the same directory as the font file.")
     parser.add_option("-o", dest="outputFileName", help="Output file name. The default is \"fontfilename_validate.html\".")
     parser.set_defaults(excludeTests=[])
