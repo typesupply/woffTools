@@ -7,15 +7,15 @@ This can also be used as a command line tool for validating WOFF files.
 
 """
 TO DO:
-- remove dependencies on sstruct, FontTools and Numpy
 - make this a stand-alone script
-- the checksum calculation uses the functions in FontTools. those seem to be incorrect or over-complicated at best.
-- merge metadata and table infor from woff-info
+- merge metadata and table info from woff-info
 - split length and offset tests into smaller functions that can be more easily doctested
 - test for proper ordering of table data, metadata, private data
 - test metadata extension element
 - test for gaps in table data
 - test for overlapping tables
+- review spec testable assertions and make sure they are all covered here
+- check conformance levels of all tests
 """
 
 # import test
