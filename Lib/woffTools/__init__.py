@@ -559,7 +559,7 @@ class WOFFWriter(object):
         checkSumAdjustment = int(numpy.subtract.reduce(numpy.array([0xB1B0AFBA, checksum], numpy.uint32)))
         # set the value in the head table
         index, entry, data = self.tables["head"]
-        data = data[:8] + struct.pack(">l", checkSumAdjustment) + data[12:]
+        data = data[:8] + struct.pack(">L", checkSumAdjustment) + data[12:]
         # compress the data
         newEntry, data = self._prepTable("head", data)
         # update the entry data
