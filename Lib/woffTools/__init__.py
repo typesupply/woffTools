@@ -556,7 +556,7 @@ class WOFFWriter(object):
         assert directoryEnd == len(directory)
         checksums[-1] = calcChecksum(directory)
         checksum = numpy.add.reduce(checksums)
-        checkSumAdjustment = numpy.array(0xb1b0afbaL - 0x100000000L, numpy.int32) - checksum
+        checkSumAdjustment = int(numpy.subtract.reduce(numpy.array([0xB1B0AFBA, checksum], numpy.uint32)))
         # set the value in the head table
         index, entry, data = self.tables["head"]
         data = data[:8] + struct.pack(">l", checkSumAdjustment) + data[12:]
