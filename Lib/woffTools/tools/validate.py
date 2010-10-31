@@ -17,19 +17,6 @@ TO DO:
 - check conformance levels of all tests
 """
 
-# import test
-
-importErrors = []
-try:
-    import woffTools
-except ImportError:
-    importErrors.append("woffTools")
-
-if importErrors:
-    import sys
-    print "Could not import needed module(s):", ", ".join(importErrors)
-    sys.exit()
-
 # import
 
 import os
