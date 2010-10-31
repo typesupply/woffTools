@@ -22,14 +22,6 @@ TO DO:
 
 importErrors = []
 try:
-    import numpy
-except:
-    importErrors.append("numpy")
-try:
-    import fontTools
-except ImportError:
-    importErrors.append("fontTools")
-try:
     import woffTools
 except ImportError:
     importErrors.append("woffTools")
@@ -46,10 +38,8 @@ import sys
 import struct
 import zlib
 import optparse
-import numpy
 from xml.etree import ElementTree
 from xml.parsers.expat import ExpatError
-from fontTools.ttLib.sfnt import getSearchRange, SFNTDirectoryEntry
 from woffTools.tools.support import startHTML, finishHTML, findUniqueFileName
 
 
@@ -491,7 +481,7 @@ def testHeadCheckSumAdjustment(data, reporter):
     if "head" not in tables:
         reporter.logWarning(message="The font does not contain a \"head\" table.")
         return
-    newChecksum = calcHeadCheckSum(data)
+    newChecksum = calcHeadChecksum(data)
     data = tables["head"]
     try:
         format = ">l"
@@ -1131,7 +1121,7 @@ def testPrivateDataOffsetAndLength(data, reporter):
 # Support: Misc. SFNT Stuff
 # -------------------------
 
-# Some of thsi was adapted from fontTools.ttLib.sfnt
+# Some of this was adapted from fontTools.ttLib.sfnt
 
 sfntHeaderFormat = """
     sfntVersion:    4s
@@ -1149,6 +1139,87 @@ sfntDirectoryEntryFormat = """
     length:         L
 """
 sfntDirectoryEntrySize = structCalcSize(sfntDirectoryEntryFormat)
+
+def maxPowerOfTwo(value):
+    exponent = 0
+    while value:
+        value = value >> 1
+        exponent += 1
+    return max(exponent - 1, 0)
+
+def getSearchRange(numTables):
+    exponent = maxPowerOfTwo(numTables)
+    searchRange = (2 ** exponent) * 16
+    entrySelector = exponent
+    rangeShift = numTables * 16 - searchRange
+    return searchRange, entrySelector, rangeShift
+
+def calcPaddingLength(length):
+    return 4 - (length % 4)
+
+def padData(data):
+    data += "\0" * calcPaddingLength(len(data))
+    return data
+
+def sumDataULongs(data):
+    longs = struct.unpack(">%dL" % (len(data) / 4), data)
+    value = sum(longs) % (2 ** 32)
+    return value
+
+def calcChecksum(tag, data):
+    if tag == "head":
+        data = data[:8] + "\0\0\0\0" + data[12:]
+    data = padData(data)
+    value = sumDataULongs(data)
+    return value
+
+def calcHeadChecksum(data):
+    header = unpackHeader(data)
+    directory = unpackDirectory(data)
+    tables = unpackTableData(data)
+    numTables = header["numTables"]
+    # sort tables
+    sorter = []
+    for entry in directory:
+        sorter.append((entry["offset"], entry, tables[entry["tag"]]))
+    # build the sfnt directory
+    searchRange, entrySelector, rangeShift = getSearchRange(numTables)
+    sfntHeaderData = dict(
+        sfntVersion=header["flavor"],
+        numTables=numTables,
+        searchRange=searchRange,
+        entrySelector=entrySelector,
+        rangeShift=rangeShift
+    )
+    sfntData = structPack(sfntHeaderFormat, sfntHeaderData)
+    sfntEntries = {}
+    offset = sfntHeaderSize + (sfntDirectoryEntrySize * numTables)
+    for index, entry, data in sorted(sorter):
+        if entry["tag"] == "head":
+            checksum = calcChecksum("head", data)
+        else:
+            checksum = entry["origChecksum"]
+        tag = entry["tag"]
+        length = entry["origLength"]
+        sfntEntries[tag] = dict(
+            tag=tag,
+            checkSum=entry["origChecksum"],
+            offset=offset,
+            length=length
+        )
+        offset += length + calcPaddingLength(length)
+    for tag, sfntEntry in sorted(sfntEntries.items()):
+        sfntData += structPack(sfntDirectoryEntryFormat, sfntEntry)
+    # calculate
+    tags = sfntEntries.keys()
+    checkSums = [entry["checkSum"] for entry in sfntEntries.values()]
+    directoryEnd = sfntHeaderSize + (len(tags) * sfntDirectoryEntrySize)
+    assert directoryEnd == len(sfntData)
+    checkSums.append(calcChecksum(None, sfntData))
+    checkSum = sum(checkSums)
+    checkSum = 0xB1B0AFBA - checkSum
+    return checkSum
+
 
 # ---------
 # Reporters
@@ -1407,72 +1478,6 @@ def unpackMetadata(data, decompress=True, parse=True):
 def unpackPrivateData(data):
     header = unpackHeader(data)
     data = data[header["privOffset"]:header["privOffset"]+header["privLength"]]
-    return data
-
-# adapted from fontTools.ttLib.sfnt
-
-def calcChecksum(tag, data):
-    if tag == "head":
-        data = data[:8] + '\0\0\0\0' + data[12:]
-    data = padData(data)
-    data = struct.unpack(">%dL" % (len(data) / 4), data)
-    a = numpy.array(tuple([0]) + data, numpy.uint32)
-    cs = int(numpy.sum(a, dtype=numpy.uint32))
-    return int(cs)
-
-def calcHeadCheckSum(data):
-    header = unpackHeader(data)
-    directory = unpackDirectory(data)
-    tables = unpackTableData(data)
-    numTables = header["numTables"]
-    # sort tables
-    sorter = []
-    for entry in directory:
-        sorter.append((entry["offset"], entry, tables[entry["tag"]]))
-    # build the sfnt directory
-    searchRange, entrySelector, rangeShift = getSearchRange(numTables)
-    sfntDirectoryData = dict(
-        sfntVersion=header["flavor"],
-        numTables=numTables,
-        searchRange=searchRange,
-        entrySelector=entrySelector,
-        rangeShift=rangeShift
-    )
-    directory = structPack(sfntHeaderFormat, sfntDirectoryData)
-    sfntEntries = {}
-    offset = sfntHeaderSize + (sfntDirectoryEntrySize * numTables)
-    for index, entry, data in sorted(sorter):
-        if entry["tag"] == "head":
-            checksum = calcChecksum("head", data)
-        else:
-            checksum = entry["origChecksum"]
-        sfntEntry = SFNTDirectoryEntry()
-        sfntEntry.tag = entry["tag"]
-        sfntEntry.checkSum = entry["origChecksum"]
-        sfntEntry.offset = offset
-        sfntEntry.length = entry["origLength"]
-        sfntEntries[entry["tag"]] = sfntEntry
-        offset += entry["origLength"]
-        if entry["origLength"] % 4:
-            offset += 4 - (entry["origLength"] % 4)
-    for tag, sfntEntry in sorted(sfntEntries.items()):
-        directory += sfntEntry.toString()
-    # calculate
-    tags = sfntEntries.keys()
-    checksums = numpy.zeros(len(tags) + 1, numpy.uint32)
-    for index, tag in enumerate(tags):
-        checksums[index] = sfntEntries[tag].checkSum
-    directoryEnd = sfntHeaderSize + (len(tags) * sfntDirectoryEntrySize)
-    assert directoryEnd == len(directory)
-    checksums[-1] = calcChecksum(None, directory)
-    checksum = numpy.add.reduce(checksums, dtype=numpy.uint32)
-    checkSumAdjustment = int(numpy.subtract.reduce(numpy.array([0xB1B0AFBA, checksum], numpy.uint32)))
-    return checkSumAdjustment
-
-def padData(data):
-    remainder = len(data) % 4
-    if remainder:
-        data += "\0" * (4 - remainder)
     return data
 
 # ---------------

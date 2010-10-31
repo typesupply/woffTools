@@ -1,9 +1,8 @@
 import struct
 import zlib
 from xml.etree import ElementTree
-from fontTools.ttLib.sfnt import getSearchRange, SFNTDirectoryEntry
 from woffTools.tools.validate import structPack, HTMLReporter,\
-    calcChecksum, calcHeadCheckSum,\
+    calcChecksum, calcHeadChecksum,\
     sfntHeaderFormat, sfntHeaderSize, sfntDirectoryEntryFormat, sfntDirectoryEntrySize, \
     shouldSkipMetadataTest,\
     testDirectoryBorders,\
@@ -945,7 +944,7 @@ def headCheckSumAdjustmentTest1():
             headOffset = offset
         offset += len(origData)
     woffData = packTestFont(tableData=tableData)
-    checkSumAdjustment = calcHeadCheckSum(woffData)
+    checkSumAdjustment = calcHeadChecksum(woffData)
     checkSumAdjustment = struct.pack(">L", checkSumAdjustment)
     woffData = woffData[:headOffset+8] + checkSumAdjustment + woffData[headOffset+12:]
     return woffData
