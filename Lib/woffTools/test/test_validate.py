@@ -1,11 +1,10 @@
 import struct
 import zlib
 from xml.etree import ElementTree
-import sstruct
-from fontTools.ttLib.sfnt import getSearchRange, SFNTDirectoryEntry, \
-    sfntDirectoryFormat, sfntDirectorySize, sfntDirectoryEntryFormat, sfntDirectoryEntrySize
-from woffTools.tools.validate import HTMLReporter,\
+from fontTools.ttLib.sfnt import getSearchRange, SFNTDirectoryEntry
+from woffTools.tools.validate import structPack, HTMLReporter,\
     calcChecksum, calcHeadCheckSum,\
+    sfntHeaderFormat, sfntHeaderSize, sfntDirectoryEntryFormat, sfntDirectoryEntrySize, \
     shouldSkipMetadataTest,\
     testDirectoryBorders,\
     testDirectoryChecksums,\
@@ -142,14 +141,14 @@ testDataTableData = "\0" * 1000
 def packTestHeader(data=None):
     if data is None:
         data = testDataHeaderDict
-    return sstruct.pack(headerFormat, data)
+    return structPack(headerFormat, data)
 
 def packTestDirectory(directory=None):
     if directory is None:
         directory = testDataDirectoryList
     data = ""
     for table in directory:
-        data += sstruct.pack(directoryFormat, table)
+        data += structPack(directoryFormat, table)
     return data
 
 def packTestFont(header=None, directory=None, tableData=None, metadata=None,
@@ -455,7 +454,7 @@ def totalSFNTSizeTest1():
     header = dict(testDataHeaderDict)
     numTables = len(testDataDirectoryList)
     header["numTables"] = numTables
-    header["totalSfntSize"] = sfntDirectorySize + (numTables * sfntDirectoryEntrySize) + (len(testDataTableData) * numTables)
+    header["totalSfntSize"] = sfntHeaderSize + (numTables * sfntDirectoryEntrySize) + (len(testDataTableData) * numTables)
     directory = []
     for table in testDataDirectoryList:
         table = dict(table)
@@ -473,7 +472,7 @@ def totalSFNTSizeTest2():
     header = dict(testDataHeaderDict)
     numTables = len(testDataDirectoryList)
     header["numTables"] = numTables
-    header["totalSfntSize"] = sfntDirectorySize + (numTables * sfntDirectoryEntrySize) + (len(testDataTableData) * numTables) - 1
+    header["totalSfntSize"] = sfntHeaderSize + (numTables * sfntDirectoryEntrySize) + (len(testDataTableData) * numTables) - 1
     directory = []
     for table in testDataDirectoryList:
         table = dict(table)
@@ -947,7 +946,7 @@ def headCheckSumAdjustmentTest1():
         offset += len(origData)
     woffData = packTestFont(tableData=tableData)
     checkSumAdjustment = calcHeadCheckSum(woffData)
-    checkSumAdjustment = struct.pack(">l", checkSumAdjustment)
+    checkSumAdjustment = struct.pack(">L", checkSumAdjustment)
     woffData = woffData[:headOffset+8] + checkSumAdjustment + woffData[headOffset+12:]
     return woffData
 

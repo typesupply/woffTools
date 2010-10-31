@@ -47,19 +47,65 @@ import struct
 import zlib
 import optparse
 import numpy
-import sstruct
 from xml.etree import ElementTree
 from xml.parsers.expat import ExpatError
-from fontTools.ttLib.sfnt import getSearchRange, SFNTDirectoryEntry, \
-    sfntDirectoryFormat, sfntDirectorySize, sfntDirectoryEntryFormat, sfntDirectoryEntrySize
+from fontTools.ttLib.sfnt import getSearchRange, SFNTDirectoryEntry
 from woffTools.tools.support import startHTML, finishHTML, findUniqueFileName
+
+
+# ----------------------
+# Support: struct Helper
+# ----------------------
+
+# This was inspired by Just van Rossum's sstruct module.
+# http://fonttools.svn.sourceforge.net/svnroot/fonttools/trunk/Lib/sstruct.py
+
+def structPack(format, obj):
+    keys, formatString = _structGetFormat(format)
+    values = []
+    for key in keys:
+        values.append(obj[key])
+    data = struct.pack(formatString, *values)
+    return data
+
+def structUnpack(format, data):
+    keys, formatString = _structGetFormat(format)
+    size = struct.calcsize(formatString)
+    values = struct.unpack(formatString, data[:size])
+    unpacked = {}
+    for index, key in enumerate(keys):
+        value = values[index]
+        unpacked[key] = value
+    return unpacked, data[size:]
+
+def structCalcSize(format):
+    keys, formatString = _structGetFormat(format)
+    return struct.calcsize(formatString)
+
+_structFormatCache = {}
+
+def _structGetFormat(format):
+    if format not in _structFormatCache:
+        keys = []
+        formatString = [">"] # always big endian
+        for line in format.strip().splitlines():
+            line = line.split("#", 1)[0].strip()
+            if not line:
+                continue
+            key, formatCharacter = line.split(":")
+            key = key.strip()
+            formatCharacter = formatCharacter.strip()
+            keys.append(key)
+            formatString.append(formatCharacter)
+        _structFormatCache[format] = (keys, "".join(formatString))
+    return _structFormatCache[format]
+
 
 # ------
 # Header
 # ------
 
 headerFormat = """
-    > # big endian
     signature:      4s
     flavor:         4s
     length:         L
@@ -74,7 +120,7 @@ headerFormat = """
     privOffset:     L
     privLength:     L
 """
-headerSize = sstruct.calcsize(headerFormat)
+headerSize = structCalcSize(headerFormat)
 
 def testHeaderSize(data, reporter):
     """
@@ -93,7 +139,7 @@ def testHeaderStructure(data, reporter):
     - header structure by trying to unpack header.
     """
     try:
-        sstruct.unpack2(headerFormat, data)
+        structUnpack(headerFormat, data)
         reporter.logPass(message="The header structure is correct.")
     except:
         reporter.logError(message="The header is not properly structured.")
@@ -193,7 +239,7 @@ def testHeaderTotalSFNTSize(data, reporter):
     directory = unpackDirectory(data)
     totalSfntSize = header["totalSfntSize"]
     numTables = header["numTables"]
-    requiredSize = sfntDirectorySize + (numTables * sfntDirectoryEntrySize)
+    requiredSize = sfntHeaderSize + (numTables * sfntDirectoryEntrySize)
     for table in directory:
         origLength = table["origLength"]
         if origLength % 4:
@@ -224,14 +270,13 @@ def testHeaderMajorVersionAndMinorVersion(data, reporter):
 # ---------------
 
 directoryFormat = """
-    > # big endian
     tag:            4s
     offset:         L
     compLength:     L
     origLength:     L
     origChecksum:   L
 """
-directorySize = sstruct.calcsize(directoryFormat)
+directorySize = structCalcSize(directoryFormat)
 
 def testHeaderNumTables(data, reporter):
     """
@@ -247,7 +292,7 @@ def testHeaderNumTables(data, reporter):
     data = data[headerSize:]
     for index in range(numTables):
         try:
-            d, data = sstruct.unpack2(directoryFormat, data)
+            d, data = structUnpack(directoryFormat, data)
         except:
             reporter.logError(message="The defined number of tables in the header (%d) does not match the actual number of tables (%d)." % (numTables, index))
             return True
@@ -1082,6 +1127,29 @@ def testPrivateDataOffsetAndLength(data, reporter):
     else:
         reporter.logPass(message="The private data has properly set offset and length.")
 
+# -------------------------
+# Support: Misc. SFNT Stuff
+# -------------------------
+
+# Some of thsi was adapted from fontTools.ttLib.sfnt
+
+sfntHeaderFormat = """
+    sfntVersion:    4s
+    numTables:      H
+    searchRange:    H
+    entrySelector:  H
+    rangeShift:     H
+"""
+sfntHeaderSize = structCalcSize(sfntHeaderFormat)
+
+sfntDirectoryEntryFormat = """
+    tag:            4s
+    checkSum:       L
+    offset:         L
+    length:         L
+"""
+sfntDirectoryEntrySize = structCalcSize(sfntDirectoryEntryFormat)
+
 # ---------
 # Reporters
 # ---------
@@ -1301,7 +1369,7 @@ class HTMLReporter(object):
 # ----------------
 
 def unpackHeader(data):
-    return sstruct.unpack2(headerFormat, data)[0]
+    return structUnpack(headerFormat, data)[0]
 
 def unpackDirectory(data):
     header = unpackHeader(data)
@@ -1309,7 +1377,7 @@ def unpackDirectory(data):
     data = data[headerSize:]
     directory = []
     for index in range(numTables):
-        table, data = sstruct.unpack2(directoryFormat, data)
+        table, data = structUnpack(directoryFormat, data)
         directory.append(table)
     return directory
 
@@ -1370,9 +1438,9 @@ def calcHeadCheckSum(data):
         entrySelector=entrySelector,
         rangeShift=rangeShift
     )
-    directory = sstruct.pack(sfntDirectoryFormat, sfntDirectoryData)
+    directory = structPack(sfntHeaderFormat, sfntDirectoryData)
     sfntEntries = {}
-    offset = sfntDirectorySize + (sfntDirectoryEntrySize * numTables)
+    offset = sfntHeaderSize + (sfntDirectoryEntrySize * numTables)
     for index, entry, data in sorted(sorter):
         if entry["tag"] == "head":
             checksum = calcChecksum("head", data)
@@ -1394,7 +1462,7 @@ def calcHeadCheckSum(data):
     checksums = numpy.zeros(len(tags) + 1, numpy.uint32)
     for index, tag in enumerate(tags):
         checksums[index] = sfntEntries[tag].checkSum
-    directoryEnd = sfntDirectorySize + (len(tags) * sfntDirectoryEntrySize)
+    directoryEnd = sfntHeaderSize + (len(tags) * sfntDirectoryEntrySize)
     assert directoryEnd == len(directory)
     checksums[-1] = calcChecksum(None, directory)
     checksum = numpy.add.reduce(checksums, dtype=numpy.uint32)
