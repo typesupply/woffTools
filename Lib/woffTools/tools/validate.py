@@ -11,9 +11,9 @@ This can also be used as a command line tool for validating WOFF files.
 TO DO:
 - merge metadata and table info from woff-info
 - split length and offset tests into smaller functions that can be more easily doctested
+- split testDirectoryBorders into smaller functions
 - test for proper ordering of table data, metadata, private data
 - test metadata extension element
-- test for gaps in table data
 - test for overlapping tables
 - review spec testable assertions and make sure they are all covered here
 - check conformance levels of all tests
@@ -21,12 +21,7 @@ TO DO:
 
 """
 Testable Assertions (File Format):
-http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
 http://dev.w3.org/webfonts/WOFF/spec/#conform-totalsize-longword
-http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
-http://dev.w3.org/webfonts/WOFF/spec/#conform-tablesize-longword
-http://dev.w3.org/webfonts/WOFF/spec/#conform-afterdirectory
-http://dev.w3.org/webfonts/WOFF/spec/#conform-sameorder
 http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-optional
 http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-alwayscompress
 http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-afterfonttable
@@ -48,6 +43,13 @@ http://dev.w3.org/webfonts/WOFF/spec/#conform-private
 http://dev.w3.org/webfonts/WOFF/spec/#conform-private-last
 http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padalign
 http://dev.w3.org/webfonts/WOFF/spec/#conform-afterprivate
+
+http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
+I'm not sure how to test for this one. The compression validity is
+checked if the table has been compressed. Maybe that is enough?
+
+http://dev.w3.org/webfonts/WOFF/spec/#conform-sameorder
+This can't be tested without access the original SNFT data.
 """
 
 # import
@@ -242,22 +244,30 @@ def testHeaderReserved(data, reporter):
 def testHeaderTotalSFNTSize(data, reporter):
     """
     Tests:
+    - the size must me a multiple of 4.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-totalsize-longword
     - origLength values in the directory, with proper padding,
       sum to the totalSfntSize in the header.
     """
     header = unpackHeader(data)
     directory = unpackDirectory(data)
     totalSfntSize = header["totalSfntSize"]
-    numTables = header["numTables"]
-    requiredSize = sfntHeaderSize + (numTables * sfntDirectoryEntrySize)
-    for table in directory:
-        origLength = table["origLength"]
-        if origLength % 4:
-            origLength += 4 - (origLength % 4)
-        requiredSize += origLength
-    if totalSfntSize != requiredSize:
-        reporter.logError(message="The total sfnt size (%d) does not match the required sfnt size (%d)." % (totalSfntSize, requiredSize))
+    isValid = True
+    if totalSfntSize % 4:
+        reporter.logError(message="The total sfnt size (%d) is not a multiple of four." % totalSfntSize)
+        isValid = False
     else:
+        numTables = header["numTables"]
+        requiredSize = sfntHeaderSize + (numTables * sfntDirectoryEntrySize)
+        for table in directory:
+            origLength = table["origLength"]
+            if origLength % 4:
+                origLength += 4 - (origLength % 4)
+            requiredSize += origLength
+        if totalSfntSize != requiredSize:
+            reporter.logError(message="The total sfnt size (%d) does not match the required sfnt size (%d)." % (totalSfntSize, requiredSize))
+            isValid = False
+    if isValid:
         reporter.logPass(message="The total sfnt size is valid.")
 
 def testHeaderMajorVersionAndMinorVersion(data, reporter):
@@ -360,27 +370,6 @@ def testDirectoryBorders(data, reporter):
     if shouldStop:
         return True
 
-def testDirectoryGaps(data, reporter):
-    """
-    Tests:
-    - there should be no gaps between tables
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-noextraneous
-    """
-    directory = unpackDirectory(data)
-    prevTable = None
-    prevTableEnd = None
-    for table in directory:
-        tag = table["tag"]
-        offset = table["offset"]
-        compLength = table["compLength"]
-        if prevTableEnd is not None:
-            if prevTableEnd != offset:
-                reporter.logError(message="There is extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
-            else:
-                reporter.logPass(message="There is not extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
-        prevTable = tag
-        prevTableEnd = offset + compLength + calcPaddingLength(compLength)
-
 def testDirectoryCompressedLength(data, reporter):
     """
     Tests:
@@ -442,6 +431,7 @@ def testTableDataStart(data, reporter):
     """
     Tests:
     - table data starts immediately after the directory.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-afterdirectory
     """
     header = unpackHeader(data)
     directory = unpackDirectory(data)
@@ -453,13 +443,36 @@ def testTableDataStart(data, reporter):
     else:
         reporter.logPass(message="The table data begins in the proper position.")
 
+def testTableGaps(data, reporter):
+    """
+    Tests:
+    - there should be no gaps between tables
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-noextraneous
+    """
+    directory = unpackDirectory(data)
+    prevTable = None
+    prevTableEnd = None
+    for table in directory:
+        tag = table["tag"]
+        offset = table["offset"]
+        compLength = table["compLength"]
+        if prevTableEnd is not None:
+            if prevTableEnd != offset:
+                reporter.logError(message="There is extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
+            else:
+                reporter.logPass(message="There is not extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
+        prevTable = tag
+        prevTableEnd = offset + compLength + calcPaddingLength(compLength)
+
 def testTablePadding(data, reporter):
     """
     Tests:
     - table offsets are on four byte boundaries
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-tablesize-longword
     - final table ends on a four byte boundary.
         - if metadata or private data is present, use first offset.
         - if no metadata or pivate data is present, use end of file.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-tablesize-longword
     """
     header = unpackHeader(data)
     directory = unpackDirectory(data)
@@ -567,6 +580,7 @@ def testMetadataOffsetAndLength(data, reporter):
     """
     Tests:
     - if offset is zero, length is 0. vice-versa.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
     - offset is before the end of the header/directory.
     - offset is after the end of the file.
     - offset + length is greater than the available length.
@@ -1103,6 +1117,7 @@ def testPrivateDataOffsetAndLength(data, reporter):
     """
     Tests:
     - if offset is zero, length is 0. vice-versa.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
     - offset is before the end of the header/directory.
     - offset is after the end of the file.
     - offset + length is greater than the available length.
@@ -1929,6 +1944,7 @@ tests = [
     ("Directory - Compressed Length",    testDirectoryCompressedLength),
     ("Directory - Table Checksums",      testDirectoryChecksums),
     ("Tables - Start Position",          testTableDataStart),
+    ("Tables - Gaps",                    testTableGaps),
     ("Tables - Padding",                 testTablePadding),
     ("Tables - Decompression",           testTableDecompression),
     ("Tables - Original Length",         testDirectoryDecompressedLength),

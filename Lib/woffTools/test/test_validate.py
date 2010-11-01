@@ -8,7 +8,7 @@ from woffTools.tools.validate import structPack, \
     sfntHeaderFormat, sfntHeaderSize, sfntDirectoryEntryFormat, sfntDirectoryEntrySize, \
     shouldSkipMetadataTest,\
     testDirectoryBorders,\
-    testDirectoryGaps, \
+    testTableGaps, \
     testDirectoryChecksums,\
     testDirectoryCompressedLength,\
     testDirectoryDecompressedLength,\
@@ -490,7 +490,7 @@ def totalSFNTSizeTest1():
 
 def totalSFNTSizeTest2():
     """
-    Invalid totalSfntSize.
+    Invalid totalSfntSize. is not a multiple of 4.
 
     >>> doctestFunction1(testHeaderTotalSFNTSize, totalSFNTSizeTest2())
     (None, 'ERROR')
@@ -499,6 +499,24 @@ def totalSFNTSizeTest2():
     numTables = len(testDataDirectoryList)
     header["numTables"] = numTables
     header["totalSfntSize"] = sfntHeaderSize + (numTables * sfntDirectoryEntrySize) + (len(testDataTableData) * numTables) - 1
+    directory = []
+    for table in testDataDirectoryList:
+        table = dict(table)
+        table["origLength"] = len(testDataTableData)
+        directory.append(table)
+    return packTestHeader(header) + packTestDirectory(directory)
+
+def totalSFNTSizeTest3():
+    """
+    Invalid totalSfntSize compared to the table sizes.
+
+    >>> doctestFunction1(testHeaderTotalSFNTSize, totalSFNTSizeTest3())
+    (None, 'ERROR')
+    """
+    header = dict(testDataHeaderDict)
+    numTables = len(testDataDirectoryList)
+    header["numTables"] = numTables
+    header["totalSfntSize"] = sfntHeaderSize + (numTables * sfntDirectoryEntrySize) + (len(testDataTableData) * numTables) + 4
     directory = []
     for table in testDataDirectoryList:
         table = dict(table)
@@ -670,49 +688,6 @@ def directoryOffsetLengthTest4():
     return packTestHeader(header) + packTestDirectory(directory)
 
 
-# testDirectoryGaps
-
-def directoryGapsTest1():
-    """
-    No gaps between tables.
-
-    >>> doctestFunction1(testDirectoryGaps, directoryGapsTest1())
-    (None, 'PASS')
-    """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    directory = []
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    for index, table in enumerate(testDataDirectoryList):
-        table = dict(table)
-        table["offset"] = offset
-        table["compLength"] = len(testDataTableData)
-        table["origLength"] = len(testDataTableData)
-        directory.append(table)
-        offset += len(testDataTableData)
-    return packTestHeader(header) + packTestDirectory(directory)
-
-def directoryGapsTest2():
-    """
-    Gaps between tables.
-
-    >>> doctestFunction1(testDirectoryGaps, directoryGapsTest2())
-    (None, 'ERROR')
-    """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    directory = []
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    for index, table in enumerate(testDataDirectoryList):
-        table = dict(table)
-        table["offset"] = offset
-        table["compLength"] = len(testDataTableData)
-        table["origLength"] = len(testDataTableData)
-        directory.append(table)
-        offset += len(testDataTableData) + 4
-    return packTestHeader(header) + packTestDirectory(directory)
-
-
 # testDirectoryCompressedLength
 
 def directoryCompressedLengthTest1():
@@ -858,6 +833,49 @@ def tableStartTest2():
         table["offset"] = offset
         directory.append(table)
         offset += 1
+    return packTestHeader(header) + packTestDirectory(directory)
+
+
+# testTableGaps
+
+def tableGapsTest1():
+    """
+    No gaps between tables.
+
+    >>> doctestFunction1(testTableGaps, tableGapsTest1())
+    (None, 'PASS')
+    """
+    header = dict(testDataHeaderDict)
+    header["numTables"] = len(testDataDirectoryList)
+    directory = []
+    offset = headerSize + (directorySize * len(testDataDirectoryList))
+    for index, table in enumerate(testDataDirectoryList):
+        table = dict(table)
+        table["offset"] = offset
+        table["compLength"] = len(testDataTableData)
+        table["origLength"] = len(testDataTableData)
+        directory.append(table)
+        offset += len(testDataTableData)
+    return packTestHeader(header) + packTestDirectory(directory)
+
+def tableGapsTest2():
+    """
+    Gaps between tables.
+
+    >>> doctestFunction1(testTableGaps, tableGapsTest2())
+    (None, 'ERROR')
+    """
+    header = dict(testDataHeaderDict)
+    header["numTables"] = len(testDataDirectoryList)
+    directory = []
+    offset = headerSize + (directorySize * len(testDataDirectoryList))
+    for index, table in enumerate(testDataDirectoryList):
+        table = dict(table)
+        table["offset"] = offset
+        table["compLength"] = len(testDataTableData)
+        table["origLength"] = len(testDataTableData)
+        directory.append(table)
+        offset += len(testDataTableData) + 4
     return packTestHeader(header) + packTestDirectory(directory)
 
 
