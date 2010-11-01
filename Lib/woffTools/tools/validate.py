@@ -21,9 +21,6 @@ TO DO:
 
 """
 Testable Assertions (File Format):
-http://dev.w3.org/webfonts/WOFF/spec/#conform-totalsize-longword
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-optional
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-alwayscompress
 http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-afterfonttable
 http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
 http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-noprivatepad
@@ -568,6 +565,7 @@ def shouldSkipMetadataTest(data, reporter):
     """
     This is used at the start of metadata test functions.
     It writes a note and returns True if not metadata exists.
+    This covers: http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-optional
     """
     header = unpackHeader(data)
     metaOffset = header["metaOffset"]
@@ -630,6 +628,26 @@ def testMetadataOffsetAndLength(data, reporter):
         reporter.logError(message=offsetErrorMessage)
     else:
         reporter.logPass(message="The metadata has properly set offset and length.")
+
+def testMetadataIsCompressed(data, reporter):
+    """
+    Tests:
+    - metadata is compressed
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-alwayscompress
+
+    XXX: this could theoretically issue an incorrect error. the compressed metadata
+    could be longer than the original metadata. maybe this isn't something that should
+    be worried about as that would surely be incorrect metadata.
+    """
+    if shouldSkipMetadataTest(data, reporter):
+        return
+    header = unpackHeader(data)
+    length = header["metaLength"]
+    origLength = header["metaOrigLength"]
+    if length >= origLength:
+        reporter.logError(message="The compressed metdata length (%d) is higher than or equal to the original, uncompressed length (%d)." % (length, origLength))
+        return True
+    reporter.logPass(message="The compressed metdata length is smaller than the original, uncompressed length.")
 
 def testMetadataDecompression(data, reporter):
     """
@@ -1951,6 +1969,7 @@ tests = [
     ("Tables - checkSumAdjustment",      testHeadCheckSumAdjustment),
     ("Tables - DSIG",                    testDSIG),
     ("Metadata - Offset and Length",     testMetadataOffsetAndLength),
+    ("Metadata - Compression Applied",   testMetadataIsCompressed),
     ("Metadata - Decompression",         testMetadataDecompression),
     ("Metadata - Original Length",       testMetadataDecompressedLength),
     ("Metadata - Parse",                 testMetadataParse),

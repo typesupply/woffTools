@@ -45,6 +45,7 @@ from woffTools.tools.validate import structPack, \
     testMetadataLicense,\
     testMetadataLicensee,\
     testMetadataOffsetAndLength,\
+    testMetadataIsCompressed,\
     testMetadataParse,\
     testMetadataStructureTopElement,\
     testMetadataTrademark,\
@@ -1188,6 +1189,41 @@ def metadataOffsetLengthTest10():
     header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 2
     header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
     header["metaLength"] = 1
+    return packTestFont(header=header)
+
+
+# testMetadataIsCompressed
+
+def metadataIsCompressedTest1():
+    """
+    Valid metaLength and metaOrigLength.
+
+    >>> doctestFunction1(testMetadataIsCompressed, metadataIsCompressedTest1())
+    (None, 'PASS')
+    """
+    header = dict(testDataHeaderDict)
+    header["numTables"] = len(testDataDirectoryList)
+    offset = headerSize + (directorySize * len(testDataDirectoryList))
+    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 8
+    header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData))
+    header["metaLength"] = 8
+    header["metaOrigLength"] = 10
+    return packTestFont(header=header)
+
+def metadataIsCompressedTest2():
+    """
+    metaLength longer than metaOrigLength.
+
+    >>> doctestFunction1(testMetadataIsCompressed, metadataIsCompressedTest2())
+    (True, 'ERROR')
+    """
+    header = dict(testDataHeaderDict)
+    header["numTables"] = len(testDataDirectoryList)
+    offset = headerSize + (directorySize * len(testDataDirectoryList))
+    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 8
+    header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData))
+    header["metaLength"] = 10
+    header["metaOrigLength"] = 8
     return packTestFont(header=header)
 
 
