@@ -1924,7 +1924,7 @@ def validateFont(path, options, writeFile=True):
         f = open(reportPath, "wb")
         f.write(report)
         f.close()
-    return report
+    return reportPath, report
 
 # --------------------
 # Command Line Behvior
@@ -1955,7 +1955,8 @@ def main():
         else:
             print "Testing: %s..." % fontPath
             fontPath = fontPath.decode("utf-8")
-            validateFont(fontPath, options)
+            outputPath, report = validateFont(fontPath, options)
+            print "Wrote report to: %s" % outputPath
 
 if __name__ == "__main__":
     main()
