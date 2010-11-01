@@ -1,3 +1,5 @@
+#! /usr/bin/env python
+
 """
 A module for validating the the file structure of WOFF Files.
 *validateFont* is the only public function.
