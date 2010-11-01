@@ -19,6 +19,41 @@ TO DO:
 - check conformance levels of all tests
 """
 
+"""
+Testable Assertions (File Format):
+http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
+http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
+http://dev.w3.org/webfonts/WOFF/spec/#conform-noextraneous
+http://dev.w3.org/webfonts/WOFF/spec/#conform-magicnumber
+http://dev.w3.org/webfonts/WOFF/spec/#conform-totalsize-longword
+http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
+http://dev.w3.org/webfonts/WOFF/spec/#conform-reserved
+http://dev.w3.org/webfonts/WOFF/spec/#conform-tablesize-longword
+http://dev.w3.org/webfonts/WOFF/spec/#conform-afterdirectory
+http://dev.w3.org/webfonts/WOFF/spec/#conform-sameorder
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-optional
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-alwayscompress
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-afterfonttable
+http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-noprivatepad
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-wellformed
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-encoding
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-schemavalid
+http://dev.w3.org/webfonts/WOFF/spec/#conform-textlang
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadataelement-required
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadataversion-required
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-extensionelements
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-vendor-required
+http://dev.w3.org/webfonts/WOFF/spec/#conform-creditnamerequired
+http://dev.w3.org/webfonts/WOFF/spec/#conform-licensee-required
+http://dev.w3.org/webfonts/WOFF/spec/#conform-namerequired
+http://dev.w3.org/webfonts/WOFF/spec/#conform-valuerequired
+http://dev.w3.org/webfonts/WOFF/spec/#conform-private
+http://dev.w3.org/webfonts/WOFF/spec/#conform-private-last
+http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padalign
+http://dev.w3.org/webfonts/WOFF/spec/#conform-afterprivate
+"""
+
 # import
 
 import os
