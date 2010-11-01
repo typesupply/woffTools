@@ -22,12 +22,8 @@ TO DO:
 """
 Testable Assertions (File Format):
 http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
-http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
-http://dev.w3.org/webfonts/WOFF/spec/#conform-noextraneous
-http://dev.w3.org/webfonts/WOFF/spec/#conform-magicnumber
 http://dev.w3.org/webfonts/WOFF/spec/#conform-totalsize-longword
 http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
-http://dev.w3.org/webfonts/WOFF/spec/#conform-reserved
 http://dev.w3.org/webfonts/WOFF/spec/#conform-tablesize-longword
 http://dev.w3.org/webfonts/WOFF/spec/#conform-afterdirectory
 http://dev.w3.org/webfonts/WOFF/spec/#conform-sameorder
@@ -113,7 +109,6 @@ def _structGetFormat(format):
         _structFormatCache[format] = (keys, "".join(formatString))
     return _structFormatCache[format]
 
-
 # -------------
 # Tests: Header
 # -------------
@@ -162,6 +157,7 @@ def testHeaderSignature(data, reporter):
     """
     Tests:
     - signature is "wOFF"
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-magicnumber
     """
     header = unpackHeader(data)
     signature = header["signature"]
@@ -233,6 +229,7 @@ def testHeaderReserved(data, reporter):
     """
     Tests:
     - reserved is 0
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-reserved
     """
     header = unpackHeader(data)
     reserved = header["reserved"]
@@ -362,6 +359,27 @@ def testDirectoryBorders(data, reporter):
             reporter.logPass(message="The \"%s\" table directory entry has a valid offset and length." % tag)
     if shouldStop:
         return True
+
+def testDirectoryGaps(data, reporter):
+    """
+    Tests:
+    - there should be no gaps between tables
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-noextraneous
+    """
+    directory = unpackDirectory(data)
+    prevTable = None
+    prevTableEnd = None
+    for table in directory:
+        tag = table["tag"]
+        offset = table["offset"]
+        compLength = table["compLength"]
+        if prevTableEnd is not None:
+            if prevTableEnd != offset:
+                reporter.logError(message="There is extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
+            else:
+                reporter.logPass(message="There is not extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
+        prevTable = tag
+        prevTableEnd = offset + compLength + calcPaddingLength(compLength)
 
 def testDirectoryCompressedLength(data, reporter):
     """
@@ -1175,6 +1193,8 @@ def getSearchRange(numTables):
     return searchRange, entrySelector, rangeShift
 
 def calcPaddingLength(length):
+    if not length % 4:
+        return 0
     return 4 - (length % 4)
 
 def padData(data):
