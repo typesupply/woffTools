@@ -1,5 +1,6 @@
 import struct
 import zlib
+from copy import deepcopy
 from xml.etree import ElementTree
 from woffTools.tools.validate import structPack, \
     HTMLReporter,\
@@ -45,6 +46,7 @@ from woffTools.tools.validate import structPack, \
     testMetadataLicense,\
     testMetadataLicensee,\
     testMetadataOffsetAndLength,\
+    testMetadataPadding,\
     testMetadataIsCompressed,\
     testMetadataParse,\
     testMetadataStructureTopElement,\
@@ -139,66 +141,83 @@ testDataDirectoryList = [
     )
 ]
 
+def defaultTestData(header=False, directory=False, tableData=False, metadata=False, privateData=False):
+    parts = []
+    if header:
+        header = deepcopy(testDataHeaderDict)
+        header["length"] = headerSize
+        parts.append(header)
+    if directory:
+        directory = deepcopy(testDataDirectoryList)
+        if header:
+            # set header numTables
+            header["numTables"] = len(directory)
+            # set header totalSfntSize
+            neededSize = sfntHeaderSize
+            for table in directory:
+                neededSize += sfntDirectoryEntrySize
+                neededSize += table["origLength"]
+            header["totalSfntSize"] = neededSize
+            # set header length
+            header["length"] += header["numTables"] * directorySize
+            # store the offset for later
+            dataOffset = header["length"]
+        parts.append(directory)
+    if tableData:
+        tableData = {}
+        parts.append(tableData)
+        for entry in deepcopy(testDataDirectoryList):
+            tableData[entry["tag"]] = (testDataTableData, testDataTableData)
+        if header:
+            header["length"] += len(tableData) * len(testDataTableData)
+        if directory:
+            updateDirectoryEntries(directory=directory, tableData=tableData)
+    if metadata:
+        metadata = "\0" * 1000 # XXX use real xml!
+        compMetadata = zlib.compress(metadata)
+        if header:
+            header["metaOrigLength"] = len(metadata)
+            header["metaLength"] = len(compMetadata)
+            header["metaOffset"] = header["length"]
+            header["length"] = len(compMetadata) + calcPaddingLength(len(compMetadata))
+        compMetadata += "\0" * calcPaddingLength(len(compMetadata))
+        parts.append(compMetadata)
+    if len(parts) == 1:
+        return parts[0]
+    return parts
+
+def updateDirectoryEntries(directory=None, tableData=None):
+    offset = headerSize + (len(directory) * directorySize)
+    for entry in directory:
+        origData, compData = tableData[entry["tag"]]
+        entry["offset"] = offset
+        entry["compLength"] = len(compData)
+        entry["origLength"] = len(origData)
+        entry["origChecksum"] = 0
+        offset += len(compData)
+
 testDataTableData = "\0" * 1000
 
-def packTestHeader(data=None):
-    if data is None:
-        data = testDataHeaderDict
+def packTestHeader(data):
     return structPack(headerFormat, data)
 
-def packTestDirectory(directory=None):
-    if directory is None:
-        directory = testDataDirectoryList
+def packTestDirectory(directory):
     data = ""
     for table in directory:
         data += structPack(directoryFormat, table)
     return data
 
-def packTestFont(header=None, directory=None, tableData=None, metadata=None,
-        updateDirectoryEntries=True,
-        compressMetadata=True, metaOrigLength=None):
-    from copy import deepcopy
-    if header is None:
-        header = testDataHeaderDict
-    if directory is None:
-        directory = testDataDirectoryList
+def packTestTableData(directory, tableData):
     if tableData is None:
         tableData = {}
         for entry in directory:
             tableData[entry["tag"]] = (testDataTableData, testDataTableData)
-    # copy
-    header = dict(header)
-    directory = deepcopy(directory)
-    tableData = dict(tableData)
-    # storage
     orderedData = []
-    # table data
-    header["numTables"] = len(tableData)
-    offset = headerSize + (directorySize * 3)
     for entry in directory:
         tag = entry["tag"]
         origData, compData = tableData[tag]
-        if updateDirectoryEntries:
-            entry["offset"] = offset
-            entry["origLength"] = len(origData)
-            entry["compLength"] = len(compData)
-            entry["origChecksum"] = calcChecksum(tag, origData)
-        offset += len(compData)
         orderedData.append(compData)
-    # metadata
-    if metadata is not None:
-        if metaOrigLength is None:
-            metaOrigLength = len(metadata)
-        if compressMetadata:
-            metadata = zlib.compress(metadata)
-        header["metaOffset"] = offset
-        header["metaOrigLength"] = metaOrigLength
-        header["metaLength"] = len(metadata)
-        header["length"] += len(metadata)
-        orderedData.append(metadata)
-    # compile and return
-    return packTestHeader(header) + packTestDirectory(directory) + "".join(orderedData)
-
+    return "".join(orderedData)
 
 # --------------
 # test functions
@@ -237,7 +256,8 @@ def headerSizeTest1():
     >>> doctestFunction1(testHeaderSize, headerSizeTest1())
     (None, 'PASS')
     """
-    return packTestHeader()
+    header = defaultTestData(header=True)
+    return packTestHeader(header)
 
 def headerSizeTest2():
     """
@@ -246,7 +266,8 @@ def headerSizeTest2():
     >>> doctestFunction1(testHeaderSize, headerSizeTest2())
     (True, 'ERROR')
     """
-    return packTestHeader()[:-1]
+    header = defaultTestData(header=True)
+    return packTestHeader(header)[-1]
 
 
 # testHeaderStructure
@@ -258,7 +279,8 @@ def headerStructureTest1():
     >>> doctestFunction1(testHeaderStructure, headerStructureTest1())
     (None, 'PASS')
     """
-    return packTestHeader()
+    header = defaultTestData(header=True)
+    return packTestHeader(header)
 
 
 # testHeaderSignature
@@ -270,7 +292,8 @@ def headerSignatureTest1():
     >>> doctestFunction1(testHeaderSignature, headerSignatureTest1())
     (None, 'PASS')
     """
-    return packTestHeader()
+    header = defaultTestData(header=True)
+    return packTestHeader(header)
 
 def headerSignatureTest2():
     """
@@ -279,10 +302,9 @@ def headerSignatureTest2():
     >>> doctestFunction1(testHeaderSignature, headerSignatureTest2())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["signature"] = "XXXX"
     return packTestHeader(header)
-
 
 # testHeaderFlavor
 
@@ -293,7 +315,7 @@ def flavorTest1():
     >>> doctestFunction1(testHeaderFlavor, flavorTest1())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["flavor"] = "XXXX"
     return packTestHeader(header)
 
@@ -304,9 +326,7 @@ def flavorTest2():
     >>> doctestFunction1(testHeaderFlavor, flavorTest2())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    directory = [dict(d) for d in testDataDirectoryList]
+    header, directory = defaultTestData(header=True, directory=True)
     directory[-1]["tag"] = "CFF "
     return packTestHeader(header) + packTestDirectory(directory)
 
@@ -317,10 +337,8 @@ def flavorTest3():
     >>> doctestFunction1(testHeaderFlavor, flavorTest3())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header, directory = defaultTestData(header=True, directory=True)
     header["flavor"] = "\000\001\000\000"
-    header["numTables"] = len(testDataDirectoryList)
-    directory = [dict(d) for d in testDataDirectoryList]
     directory[-1]["tag"] = "CFF "
     return packTestHeader(header) + packTestDirectory(directory)
 
@@ -331,10 +349,9 @@ def flavorTest4():
     >>> doctestFunction1(testHeaderFlavor, flavorTest4())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
+    header, directory = defaultTestData(header=True, directory=True)
     header["flavor"] = "\000\001\000\000"
-    header["numTables"] = len(testDataDirectoryList)
-    return packTestHeader(header) + packTestDirectory(testDataDirectoryList)
+    return packTestHeader(header) + packTestDirectory(directory)
 
 def flavorTest5():
     """
@@ -343,10 +360,9 @@ def flavorTest5():
     >>> doctestFunction1(testHeaderFlavor, flavorTest5())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header, directory = defaultTestData(header=True, directory=True)
     header["flavor"] = "OTTO"
-    header["numTables"] = len(testDataDirectoryList)
-    return packTestHeader(header) + packTestDirectory(testDataDirectoryList)
+    return packTestHeader(header) + packTestDirectory(directory)
 
 
 # testHeaderLength
@@ -358,7 +374,7 @@ def headerLengthTest1():
     >>> doctestFunction1(testHeaderLength, headerLengthTest1())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["length"] = headerSize + 3
     return packTestHeader(header) + ("\0" * 3)
 
@@ -369,7 +385,7 @@ def headerLengthTest2():
     >>> doctestFunction1(testHeaderLength, headerLengthTest2())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["length"] = headerSize + 3
     return packTestHeader(header) + "\0"
 
@@ -380,9 +396,11 @@ def headerLengthTest3():
     >>> doctestFunction1(testHeaderLength, headerLengthTest3())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["length"] = headerSize + (directorySize * len(testDataDirectoryList))
-    return packTestHeader(header) + packTestDirectory()
+    header, directory = defaultTestData(header=True, directory=True)
+    for table in directory:
+        table["offset"] = 0
+        table["compLength"] = 0
+    return packTestHeader(header) + packTestDirectory(directory)
 
 def headerLengthTest4():
     """
@@ -391,9 +409,9 @@ def headerLengthTest4():
     >>> doctestFunction1(testHeaderLength, headerLengthTest4())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header, directory = defaultTestData(header=True, directory=True)
     header["length"] = 1
-    return packTestHeader(header) + packTestDirectory()
+    return packTestHeader(header) + packTestDirectory(directory)
 
 def headerLengthTest5():
     """
@@ -402,7 +420,7 @@ def headerLengthTest5():
     >>> doctestFunction1(testHeaderLength, headerLengthTest5())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["length"] = headerSize + 10
     header["metaLength"] = 10
     return packTestHeader(header) + ("\0" * 10)
@@ -414,7 +432,7 @@ def headerLengthTest6():
     >>> doctestFunction1(testHeaderLength, headerLengthTest6())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["length"] = headerSize + 10
     header["metaLength"] = 10
     return packTestHeader(header) + ("\0" * 5)
@@ -426,7 +444,7 @@ def headerLengthTest7():
     >>> doctestFunction1(testHeaderLength, headerLengthTest7())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["length"] = headerSize + 10
     header["privLength"] = 10
     return packTestHeader(header) + ("\0" * 10)
@@ -438,7 +456,7 @@ def headerLengthTest8():
     >>> doctestFunction1(testHeaderLength, headerLengthTest8())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["length"] = headerSize + 10
     header["privLength"] = 10
     return packTestHeader(header) + ("\0" * 5)
@@ -453,7 +471,7 @@ def headerReservedTest1():
     >>> doctestFunction1(testHeaderReserved, headerReservedTest1())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["reserved"] = 0
     return packTestHeader(header)
 
@@ -464,7 +482,7 @@ def headerReservedTest2():
     >>> doctestFunction1(testHeaderReserved, headerReservedTest2())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["reserved"] = 1
     return packTestHeader(header)
 
@@ -478,15 +496,7 @@ def totalSFNTSizeTest1():
     >>> doctestFunction1(testHeaderTotalSFNTSize, totalSFNTSizeTest1())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    numTables = len(testDataDirectoryList)
-    header["numTables"] = numTables
-    header["totalSfntSize"] = sfntHeaderSize + (numTables * sfntDirectoryEntrySize) + (len(testDataTableData) * numTables)
-    directory = []
-    for table in testDataDirectoryList:
-        table = dict(table)
-        table["origLength"] = len(testDataTableData)
-        directory.append(table)
+    header, directory = defaultTestData(header=True, directory=True)
     return packTestHeader(header) + packTestDirectory(directory)
 
 def totalSFNTSizeTest2():
@@ -496,15 +506,8 @@ def totalSFNTSizeTest2():
     >>> doctestFunction1(testHeaderTotalSFNTSize, totalSFNTSizeTest2())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    numTables = len(testDataDirectoryList)
-    header["numTables"] = numTables
-    header["totalSfntSize"] = sfntHeaderSize + (numTables * sfntDirectoryEntrySize) + (len(testDataTableData) * numTables) - 1
-    directory = []
-    for table in testDataDirectoryList:
-        table = dict(table)
-        table["origLength"] = len(testDataTableData)
-        directory.append(table)
+    header, directory = defaultTestData(header=True, directory=True)
+    header["totalSfntSize"] -= 1
     return packTestHeader(header) + packTestDirectory(directory)
 
 def totalSFNTSizeTest3():
@@ -514,15 +517,8 @@ def totalSFNTSizeTest3():
     >>> doctestFunction1(testHeaderTotalSFNTSize, totalSFNTSizeTest3())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    numTables = len(testDataDirectoryList)
-    header["numTables"] = numTables
-    header["totalSfntSize"] = sfntHeaderSize + (numTables * sfntDirectoryEntrySize) + (len(testDataTableData) * numTables) + 4
-    directory = []
-    for table in testDataDirectoryList:
-        table = dict(table)
-        table["origLength"] = len(testDataTableData)
-        directory.append(table)
+    header, directory = defaultTestData(header=True, directory=True)
+    header["totalSfntSize"] += 4
     return packTestHeader(header) + packTestDirectory(directory)
 
 
@@ -535,7 +531,7 @@ def headerVersionTest1():
     >>> doctestFunction1(testHeaderMajorVersionAndMinorVersion, headerVersionTest1())
     (None, 'WARNING')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["majorVersion"] = 0
     header["minorVersion"] = 0
     return packTestHeader(header)
@@ -547,7 +543,7 @@ def headerVersionTest2():
     >>> doctestFunction1(testHeaderMajorVersionAndMinorVersion, headerVersionTest2())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["majorVersion"] = 1
     return packTestHeader(header)
 
@@ -561,7 +557,7 @@ def headerNumTablesTest1():
     >>> doctestFunction1(testHeaderNumTables, headerNumTablesTest1())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["numTables"] = 0
     return packTestHeader(header)
 
@@ -572,9 +568,8 @@ def headerNumTablesTest2():
     >>> doctestFunction1(testHeaderNumTables, headerNumTablesTest2())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    return packTestHeader(header) + packTestDirectory()
+    header, directory = defaultTestData(header=True, directory=True)
+    return packTestHeader(header) + packTestDirectory(directory)
 
 def headerNumTablesTest3():
     """
@@ -583,9 +578,9 @@ def headerNumTablesTest3():
     >>> doctestFunction1(testHeaderNumTables, headerNumTablesTest3())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList) + 1
-    return packTestHeader(header) + packTestDirectory()
+    header, directory = defaultTestData(header=True, directory=True)
+    header["numTables"] += 1
+    return packTestHeader(header) + packTestDirectory(directory)
 
 
 # testDirectoryTableOrder
@@ -597,9 +592,8 @@ def directoryOrderTest1():
     >>> doctestFunction1(testDirectoryTableOrder, directoryOrderTest1())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    return packTestHeader(header) + packTestDirectory()
+    header, directory = defaultTestData(header=True, directory=True)
+    return packTestHeader(header) + packTestDirectory(directory)
 
 def directoryOrderTest2():
     """
@@ -608,9 +602,8 @@ def directoryOrderTest2():
     >>> doctestFunction1(testDirectoryTableOrder, directoryOrderTest2())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    return packTestHeader(header) + packTestDirectory(reversed(testDataDirectoryList))
+    header, directory = defaultTestData(header=True, directory=True)
+    return packTestHeader(header) + packTestDirectory(reversed(directory))
 
 
 # testDirectoryBorders
@@ -622,16 +615,13 @@ def directoryOffsetLengthTest1():
     >>> doctestFunction1(testDirectoryBorders, directoryOffsetLengthTest1())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + len(testDataDirectoryList)
-    length = 1
-    directory = [dict(d) for d in testDataDirectoryList]
-    for d in directory:
-        d["offset"] = offset
-        d["compLength"] = length
+    header, directory = defaultTestData(header=True, directory=True)
+    offset = header["length"]
+    for table in directory:
+        table["offset"] = offset
+        table["compLength"] = 1
         offset += 1
+    header["length"] += len(directory)
     return packTestHeader(header) + packTestDirectory(directory)
 
 def directoryOffsetLengthTest2():
@@ -641,15 +631,11 @@ def directoryOffsetLengthTest2():
     >>> doctestFunction1(testDirectoryBorders, directoryOffsetLengthTest2())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + len(testDataDirectoryList)
-    length = 1
-    directory = [dict(d) for d in testDataDirectoryList]
-    for d in directory:
-        d["offset"] = 0
-        d["compLength"] = length
+    header, directory = defaultTestData(header=True, directory=True)
+    for table in directory:
+        table["offset"] = 0
+        table["compLength"] = 1
+    header["length"] += len(directory)
     return packTestHeader(header) + packTestDirectory(directory)
 
 def directoryOffsetLengthTest3():
@@ -659,14 +645,9 @@ def directoryOffsetLengthTest3():
     >>> doctestFunction1(testDirectoryBorders, directoryOffsetLengthTest3())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + len(testDataDirectoryList)
-    length = 1
-    directory = [dict(d) for d in testDataDirectoryList]
-    for d in directory:
-        d["offset"] = 1000
+    header, directory = defaultTestData(header=True, directory=True)
+    for table in directory:
+        table["offset"] = 1000
     return packTestHeader(header) + packTestDirectory(directory)
 
 def directoryOffsetLengthTest4():
@@ -676,16 +657,13 @@ def directoryOffsetLengthTest4():
     >>> doctestFunction1(testDirectoryBorders, directoryOffsetLengthTest4())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + len(testDataDirectoryList)
-    length = 1
-    directory = [dict(d) for d in testDataDirectoryList]
-    for d in directory:
-        d["offset"] = offset
-        d["compLength"] = 10000
+    header, directory = defaultTestData(header=True, directory=True)
+    offset = header["length"]
+    for table in directory:
+        table["offset"] = 1000
+        table["compLength"] = 1
         offset += 1
+    header["length"] += len(directory)
     return packTestHeader(header) + packTestDirectory(directory)
 
 
@@ -698,14 +676,10 @@ def directoryCompressedLengthTest1():
     >>> doctestFunction1(testDirectoryCompressedLength, directoryCompressedLengthTest1())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    directory = []
-    for table in testDataDirectoryList:
-        table = dict(table)
-        table["compLength"] = len(testDataTableData)
-        table["origLength"] = len(testDataTableData) + 1
-        directory.append(table)
+    header, directory = defaultTestData(header=True, directory=True)
+    for table in directory:
+        table["compLength"] = 10
+        table["origLength"] = 11
     return packTestHeader(header) + packTestDirectory(directory)
 
 def directoryCompressedLengthTest2():
@@ -715,14 +689,10 @@ def directoryCompressedLengthTest2():
     >>> doctestFunction1(testDirectoryCompressedLength, directoryCompressedLengthTest2())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    directory = []
-    for table in testDataDirectoryList:
-        table = dict(table)
-        table["compLength"] = len(testDataTableData) + 1
-        table["origLength"] = len(testDataTableData)
-        directory.append(table)
+    header, directory = defaultTestData(header=True, directory=True)
+    for table in directory:
+        table["compLength"] = 11
+        table["origLength"] = 10
     return packTestHeader(header) + packTestDirectory(directory)
 
 
@@ -735,13 +705,13 @@ def decompressedLengthTest1():
     >>> doctestFunction1(testDirectoryDecompressedLength, decompressedLengthTest1())
     (None, 'PASS')
     """
+    header, directory, tableData = defaultTestData(header=True, directory=True, tableData=True)
     origData = testDataTableData
     compData = zlib.compress(origData)
-    tableData = {}
-    for table in testDataDirectoryList:
-        tag = table["tag"]
-        tableData[tag] = (origData, compData)
-    return packTestFont(tableData=tableData)
+    for tag, (origData, compData) in tableData.items():
+        tableData[tag] = (origData, zlib.compress(origData))
+    updateDirectoryEntries(directory, tableData)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData)
 
 def decompressedLengthTest2():
     """
@@ -750,21 +720,15 @@ def decompressedLengthTest2():
     >>> doctestFunction1(testDirectoryDecompressedLength, decompressedLengthTest2())
     (None, 'ERROR')
     """
+    header, directory, tableData = defaultTestData(header=True, directory=True, tableData=True)
     origData = testDataTableData
     compData = zlib.compress(origData)
-    directory = []
-    tableData = {}
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    for table in testDataDirectoryList:
-        table = dict(table)
-        tag = table["tag"]
-        table["offset"] = offset
-        table["origLength"] = len(testDataTableData) + 1
-        table["compLength"] = len(compData)
-        directory.append(table)
-        tableData[tag] = (origData, compData)
-        offset += len(compData)
-    return packTestFont(directory=directory, tableData=tableData, updateDirectoryEntries=False)
+    for tag, (origData, compData) in tableData.items():
+        tableData[tag] = (origData, zlib.compress(origData))
+    updateDirectoryEntries(directory, tableData)
+    for entry in directory:
+        entry["origLength"] += 1
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData)
 
 
 # testDirectoryChecksums
@@ -776,7 +740,8 @@ def checksumTest1():
     >>> doctestFunction1(testDirectoryChecksums, checksumTest1())
     (None, 'PASS')
     """
-    return packTestFont()
+    header, directory, tableData = defaultTestData(header=True, directory=True, tableData=True)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData)
 
 def checksumTest2():
     """
@@ -785,17 +750,10 @@ def checksumTest2():
     >>> doctestFunction1(testDirectoryChecksums, checksumTest2())
     (None, 'ERROR')
     """
-    directory = []
-    offset = headerSize + (directorySize * 3)
-    for table in testDataDirectoryList:
-        table = dict(table)
-        table["offset"] = offset
-        table["origLength"] = len(testDataTableData)
-        table["compLength"] = len(testDataTableData)
-        table["origChecksum"] = 123
-        directory.append(table)
-        offset += len(testDataTableData)
-    return packTestFont(directory=directory, updateDirectoryEntries=False)
+    header, directory, tableData = defaultTestData(header=True, directory=True, tableData=True)
+    for entry in directory:
+        entry["origChecksum"] = 123
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData)
 
 
 # testTableDataStart
@@ -807,14 +765,10 @@ def tableStartTest1():
     >>> doctestFunction1(testTableDataStart, tableStartTest1())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    directory = []
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    for table in testDataDirectoryList:
-        table = dict(table)
-        table["offset"] = offset
-        directory.append(table)
+    header, directory = defaultTestData(header=True, directory=True)
+    offset = header["length"]
+    for entry in directory:
+        entry["offset"] = offset
         offset += 1
     return packTestHeader(header) + packTestDirectory(directory)
 
@@ -825,14 +779,10 @@ def tableStartTest2():
     >>> doctestFunction1(testTableDataStart, tableStartTest2())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    directory = []
-    offset = headerSize + (directorySize * len(testDataDirectoryList)) + 1
-    for table in testDataDirectoryList:
-        table = dict(table)
-        table["offset"] = offset
-        directory.append(table)
+    header, directory = defaultTestData(header=True, directory=True)
+    offset = header["length"] + 1
+    for entry in directory:
+        entry["offset"] = offset
         offset += 1
     return packTestHeader(header) + packTestDirectory(directory)
 
@@ -846,17 +796,12 @@ def tableGapsTest1():
     >>> doctestFunction1(testTableGaps, tableGapsTest1())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    directory = []
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    for index, table in enumerate(testDataDirectoryList):
-        table = dict(table)
-        table["offset"] = offset
-        table["compLength"] = len(testDataTableData)
-        table["origLength"] = len(testDataTableData)
-        directory.append(table)
-        offset += len(testDataTableData)
+    header, directory = defaultTestData(header=True, directory=True)
+    offset = header["length"]
+    for entry in directory:
+        entry["offset"] = offset
+        entry["compLength"] = 100
+        offset += 100
     return packTestHeader(header) + packTestDirectory(directory)
 
 def tableGapsTest2():
@@ -866,17 +811,12 @@ def tableGapsTest2():
     >>> doctestFunction1(testTableGaps, tableGapsTest2())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    directory = []
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    for index, table in enumerate(testDataDirectoryList):
-        table = dict(table)
-        table["offset"] = offset
-        table["compLength"] = len(testDataTableData)
-        table["origLength"] = len(testDataTableData)
-        directory.append(table)
-        offset += len(testDataTableData) + 4
+    header, directory = defaultTestData(header=True, directory=True)
+    offset = header["length"]
+    for entry in directory:
+        entry["offset"] = offset
+        entry["compLength"] = 100
+        offset += 104
     return packTestHeader(header) + packTestDirectory(directory)
 
 
@@ -889,13 +829,7 @@ def paddingTest1():
     >>> doctestFunction1(testTablePadding, paddingTest1(), -2)
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    directory = []
-    for table in testDataDirectoryList:
-        table = dict(table)
-        table["offset"] = 0
-        directory.append(table)
+    header, directory = defaultTestData(header=True, directory=True)
     return packTestHeader(header) + packTestDirectory(directory)
 
 def paddingTest2():
@@ -905,13 +839,9 @@ def paddingTest2():
     >>> doctestFunction1(testTablePadding, paddingTest2(), -2)
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    directory = []
-    for table in testDataDirectoryList:
-        table = dict(table)
-        table["offset"] = 1
-        directory.append(table)
+    header, directory = defaultTestData(header=True, directory=True)
+    for entry in directory:
+        entry["offset"] = 1
     return packTestHeader(header) + packTestDirectory(directory)
 
 def paddingTest3():
@@ -921,9 +851,9 @@ def paddingTest3():
     >>> doctestFunction1(testTablePadding, paddingTest3())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["length"] = len(testDataTableData)
-    return packTestHeader(header) + packTestDirectory([])
+    header = defaultTestData(header=True)
+    header["length"] += 4
+    return packTestHeader(header)
 
 def paddingTest4():
     """
@@ -932,9 +862,9 @@ def paddingTest4():
     >>> doctestFunction1(testTablePadding, paddingTest4())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["length"] = len(testDataTableData) + 1
-    return packTestHeader(header) + packTestDirectory([])
+    header = defaultTestData(header=True)
+    header["length"] += 3
+    return packTestHeader(header)
 
 def paddingTest5():
     """
@@ -943,9 +873,10 @@ def paddingTest5():
     >>> doctestFunction1(testTablePadding, paddingTest5())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["metaOffset"] = len(testDataTableData)
-    return packTestHeader(header) + packTestDirectory([])
+    header = defaultTestData(header=True)
+    header["length"] += 4
+    header["metaOffset"] = header["length"]
+    return packTestHeader(header)
 
 def paddingTest6():
     """
@@ -954,9 +885,10 @@ def paddingTest6():
     >>> doctestFunction1(testTablePadding, paddingTest6())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["metaOffset"] = len(testDataTableData) + 1
-    return packTestHeader(header) + packTestDirectory([])
+    header = defaultTestData(header=True)
+    header["length"] += 3
+    header["metaOffset"] = header["length"]
+    return packTestHeader(header)
 
 def paddingTest7():
     """
@@ -965,9 +897,10 @@ def paddingTest7():
     >>> doctestFunction1(testTablePadding, paddingTest7())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["privOffset"] = len(testDataTableData)
-    return packTestHeader(header) + packTestDirectory([])
+    header = defaultTestData(header=True)
+    header["length"] += 4
+    header["privOffset"] = header["length"]
+    return packTestHeader(header)
 
 def paddingTest8():
     """
@@ -976,9 +909,10 @@ def paddingTest8():
     >>> doctestFunction1(testTablePadding, paddingTest8())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["privOffset"] = len(testDataTableData) + 1
-    return packTestHeader(header) + packTestDirectory([])
+    header = defaultTestData(header=True)
+    header["length"] += 3
+    header["privOffset"] = header["length"]
+    return packTestHeader(header)
 
 
 # testTableDecompression
@@ -990,13 +924,11 @@ def decompressionTest1():
     >>> doctestFunction1(testTableDecompression, decompressionTest1())
     (False, 'PASS')
     """
-    origData = testDataTableData
-    compData = zlib.compress(origData)
-    tableData = {}
-    for table in testDataDirectoryList:
-        tag = table["tag"]
-        tableData[tag] = (origData, compData)
-    return packTestFont(tableData=tableData)
+    header, directory, tableData = defaultTestData(header=True, directory=True, tableData=True)
+    for tag, (origData, compData) in tableData.items():
+        tableData[tag] = (origData, zlib.compress(compData))
+    updateDirectoryEntries(directory, tableData)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData)
 
 def decompressionTest2():
     """
@@ -1005,14 +937,13 @@ def decompressionTest2():
     >>> doctestFunction1(testTableDecompression, decompressionTest2())
     (True, 'ERROR')
     """
-    origData = testDataTableData
-    compData = zlib.compress(origData)
-    compData = "".join(reversed([i for i in compData]))
-    tableData = {}
-    for table in testDataDirectoryList:
-        tag = table["tag"]
+    header, directory, tableData = defaultTestData(header=True, directory=True, tableData=True)
+    for tag, (origData, compData) in tableData.items():
+        compData = "".join(reversed(zlib.compress(compData)))
         tableData[tag] = (origData, compData)
-    return packTestFont(tableData=tableData)
+    updateDirectoryEntries(directory, tableData)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData)
+
 
 # testHeadCheckSumAdjustment
 
@@ -1023,16 +954,11 @@ def headCheckSumAdjustmentTest1():
     >>> doctestFunction1(testHeadCheckSumAdjustment, headCheckSumAdjustmentTest1())
     (None, 'PASS')
     """
-    origData = testDataTableData
-    tableData = {}
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    for table in testDataDirectoryList:
-        tag = table["tag"]
-        tableData[tag] = (origData, origData)
-        if table["tag"] == "head":
-            headOffset = offset
-        offset += len(origData)
-    woffData = packTestFont(tableData=tableData)
+    header, directory, tableData = defaultTestData(header=True, directory=True, tableData=True)
+    woffData = packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData)
+    for entry in directory:
+        if entry["tag"] == "head":
+            headOffset = entry["offset"]
     checkSumAdjustment = calcHeadChecksum(woffData)
     checkSumAdjustment = struct.pack(">L", checkSumAdjustment)
     woffData = woffData[:headOffset+8] + checkSumAdjustment + woffData[headOffset+12:]
@@ -1045,7 +971,8 @@ def headCheckSumAdjustmentTest2():
     >>> doctestFunction1(testHeadCheckSumAdjustment, headCheckSumAdjustmentTest2())
     (None, 'ERROR')
     """
-    return packTestFont()
+    header, directory, tableData = defaultTestData(header=True, directory=True, tableData=True)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData)
 
 
 # testMetadataOffsetAndLength
@@ -1057,7 +984,7 @@ def metadataOffsetLengthTest1():
     >>> doctestFunction1(testMetadataOffsetAndLength, metadataOffsetLengthTest1())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["metaOffset"] = 0
     header["metaLength"] = 0
     return packTestHeader(header)
@@ -1069,7 +996,7 @@ def metadataOffsetLengthTest2():
     >>> doctestFunction1(testMetadataOffsetAndLength, metadataOffsetLengthTest2())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["metaOffset"] = 0
     header["metaLength"] = 1
     return packTestHeader(header)
@@ -1081,7 +1008,7 @@ def metadataOffsetLengthTest3():
     >>> doctestFunction1(testMetadataOffsetAndLength, metadataOffsetLengthTest3())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["metaOffset"] = 1
     header["metaLength"] = 0
     return packTestHeader(header)
@@ -1093,13 +1020,11 @@ def metadataOffsetLengthTest4():
     >>> doctestFunction1(testMetadataOffsetAndLength, metadataOffsetLengthTest4())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
-    header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData))
+    header = defaultTestData(header=True)
+    header["metaOffset"] = header["length"]
     header["metaLength"] = 1
-    return packTestFont(header=header)
+    header["length"] += 1
+    return packTestHeader(header)
 
 def metadataOffsetLengthTest5():
     """
@@ -1108,13 +1033,11 @@ def metadataOffsetLengthTest5():
     >>> doctestFunction1(testMetadataOffsetAndLength, metadataOffsetLengthTest5())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
-    header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) - 4
+    header = defaultTestData(header=True)
+    header["metaOffset"] = header["length"] - 4
     header["metaLength"] = 1
-    return packTestFont(header=header)
+    header["length"] += 1
+    return packTestHeader(header)
 
 def metadataOffsetLengthTest6():
     """
@@ -1123,13 +1046,11 @@ def metadataOffsetLengthTest6():
     >>> doctestFunction1(testMetadataOffsetAndLength, metadataOffsetLengthTest6())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
+    header = defaultTestData(header=True)
     header["metaOffset"] = header["length"] + 4
     header["metaLength"] = 1
-    return packTestFont(header=header)
+    header["length"] += 1
+    return packTestHeader(header)
 
 def metadataOffsetLengthTest7():
     """
@@ -1138,13 +1059,11 @@ def metadataOffsetLengthTest7():
     >>> doctestFunction1(testMetadataOffsetAndLength, metadataOffsetLengthTest7())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
-    header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData))
+    header = defaultTestData(header=True)
+    header["metaOffset"] = header["length"]
     header["metaLength"] = 2
-    return packTestFont(header=header)
+    header["length"] += 1
+    return packTestHeader(header)
 
 def metadataOffsetLengthTest8():
     """
@@ -1153,13 +1072,11 @@ def metadataOffsetLengthTest8():
     >>> doctestFunction1(testMetadataOffsetAndLength, metadataOffsetLengthTest8())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
-    header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData))
+    header = defaultTestData(header=True)
+    header["metaOffset"] = header["length"]
     header["metaLength"] = 2
-    return packTestFont(header=header)
+    header["length"] += 1
+    return packTestHeader(header)
 
 def metadataOffsetLengthTest9():
     """
@@ -1168,13 +1085,11 @@ def metadataOffsetLengthTest9():
     >>> doctestFunction1(testMetadataOffsetAndLength, metadataOffsetLengthTest9())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 2
-    header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 4
+    header = defaultTestData(header=True)
+    header["metaOffset"] = header["length"] + 4
     header["metaLength"] = 1
-    return packTestFont(header=header)
+    header["length"] += 2
+    return packTestHeader(header)
 
 def metadataOffsetLengthTest10():
     """
@@ -1183,13 +1098,55 @@ def metadataOffsetLengthTest10():
     >>> doctestFunction1(testMetadataOffsetAndLength, metadataOffsetLengthTest10())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 2
-    header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
+    header = defaultTestData(header=True)
+    header["metaOffset"] = header["length"] + 2
     header["metaLength"] = 1
-    return packTestFont(header=header)
+    header["length"] += 2
+    return packTestHeader(header)
+
+
+# testMetadataPadding
+#
+#def metadataPaddingTest1():
+#    """
+#    Valid padding: No padding needed. No private data.
+#
+#    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest1())
+#    (None, 'PASS')
+#    """
+#    header = dict(testDataHeaderDict)
+#    metadata = "a" * 8
+#    metaLength = len(metadata)
+#    metaOrigLength = metaLength + 1
+#    return packTestFont(header=header, compressMetadata=False, metadata=metadata, metaLength=metaLength, metaOrigLength=metaOrigLength)
+#
+#def metadataPaddingTest2():
+#    """
+#    Valid padding: No padding needed. Have private data.
+#
+#    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest2())
+#    (None, 'PASS')
+#    """
+#    header = dict(testDataHeaderDict)
+#    metadata = "a" * 8
+#    metaLength = len(metadata)
+#    metaOrigLength = metaLength + 1
+#    privateData = "\0" * 4
+#    return packTestFont(header=header, compressMetadata=False, metadata=metadata, metaLength=metaLength, metaOrigLength=metaOrigLength, privateData=privateData)
+#
+#def metadataPaddingTest3():
+#    """
+#    Invalid padding: Padding needed. No private data.
+#
+#    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest3())
+#    (None, 'PASS')
+#    """
+#    header = dict(testDataHeaderDict)
+#    metadata = "a" * 8
+#    metaLength = 7
+#    metaOrigLength = metaLength + 1
+#    return packTestFont(header=header, compressMetadata=False, metadata=metadata, metaLength=metaLength, metaOrigLength=metaOrigLength)
+#
 
 
 # testMetadataIsCompressed
@@ -1201,14 +1158,12 @@ def metadataIsCompressedTest1():
     >>> doctestFunction1(testMetadataIsCompressed, metadataIsCompressedTest1())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 8
-    header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData))
+    header = defaultTestData(header=True)
+    header["metaOffset"] = header["length"]
     header["metaLength"] = 8
     header["metaOrigLength"] = 10
-    return packTestFont(header=header)
+    header["length"] += 8
+    return packTestHeader(header)
 
 def metadataIsCompressedTest2():
     """
@@ -1217,15 +1172,12 @@ def metadataIsCompressedTest2():
     >>> doctestFunction1(testMetadataIsCompressed, metadataIsCompressedTest2())
     (True, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 8
-    header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData))
+    header = defaultTestData(header=True)
+    header["metaOffset"] = header["length"]
     header["metaLength"] = 10
     header["metaOrigLength"] = 8
-    return packTestFont(header=header)
-
+    header["length"] += 10
+    return packTestHeader(header)
 
 # shouldSkipMetadataTest
 
@@ -1238,8 +1190,8 @@ def metadataSkipTest1():
     >>> reporter.testResults
     []
     """
-    metadata = "\0" * 1000
-    return packTestFont(metadata=metadata)
+    header, directory, tableData, metadata = defaultTestData(header=True, directory=True, tableData=True, metadata=True)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData) + metadata
 
 def metadataSkipTest2():
     """
@@ -1254,7 +1206,8 @@ def metadataSkipTest2():
     >>> reporter.testResults[0][0]["type"]
     'NOTE'
     """
-    return packTestFont()
+    header, directory, tableData = defaultTestData(header=True, directory=True, tableData=True)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData)
 
 
 # testMetadataDecompression
@@ -1266,8 +1219,8 @@ def metadataDecompressionTest1():
     >>> doctestFunction1(testMetadataDecompression, metadataDecompressionTest1())
     (None, 'PASS')
     """
-    metadata = "\0" * 1000
-    return packTestFont(metadata=metadata)
+    header, directory, tableData, metadata = defaultTestData(header=True, directory=True, tableData=True, metadata=True)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData) + metadata
 
 def metadataDecompressionTest2():
     """
@@ -1276,9 +1229,9 @@ def metadataDecompressionTest2():
     >>> doctestFunction1(testMetadataDecompression, metadataDecompressionTest2())
     (True, 'ERROR')
     """
-    metadata = "\0" * 1000
-    metadata = "".join(reversed(zlib.compress(metadata)))
-    return packTestFont(metadata=metadata, compressMetadata=False)
+    header, directory, tableData, metadata = defaultTestData(header=True, directory=True, tableData=True, metadata=True)
+    metadata = "".join(reversed(metadata))
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData) + metadata
 
 
 # testMetadataDecompressedLength
@@ -1290,8 +1243,8 @@ def metadataDecompressedLengthTest1():
     >>> doctestFunction1(testMetadataDecompressedLength, metadataDecompressedLengthTest1())
     (None, 'PASS')
     """
-    metadata = "\0" * 1000
-    return packTestFont(metadata=metadata)
+    header, directory, tableData, metadata = defaultTestData(header=True, directory=True, tableData=True, metadata=True)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData) + metadata
 
 def metadataDecompressedLengthTest2():
     """
@@ -1300,8 +1253,9 @@ def metadataDecompressedLengthTest2():
     >>> doctestFunction1(testMetadataDecompressedLength, metadataDecompressedLengthTest2())
     (None, 'ERROR')
     """
-    metadata = "\0" * 1000
-    return packTestFont(metadata=metadata, metaOrigLength=len(metadata) - 1)
+    header, directory, tableData, metadata = defaultTestData(header=True, directory=True, tableData=True, metadata=True)
+    header["metaOrigLength"] -= 1
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData) + metadata
 
 
 # testMetadataParse
@@ -1320,7 +1274,14 @@ def metadataParseTest1():
         </bar>
     </foo>
     """
-    return packTestFont(metadata=metadata)
+    header, directory, tableData = defaultTestData(header=True, directory=True, tableData=True)
+    compMetadata = zlib.compress(metadata)
+    header["metaOffset"] = header["length"]
+    header["metaOrigLength"] = len(metadata)
+    header["metaLength"] = len(compMetadata)
+    compMetadata += "\0" * calcPaddingLength(len(compMetadata))
+    header["length"] += len(compMetadata)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData) + compMetadata
 
 def metadataParseTest2():
     """
@@ -1338,7 +1299,14 @@ def metadataParseTest2():
         </bar>
     </foo>
     """
-    return packTestFont(metadata=metadata)
+    header, directory, tableData = defaultTestData(header=True, directory=True, tableData=True)
+    compMetadata = zlib.compress(metadata)
+    header["metaOffset"] = header["length"]
+    header["metaOrigLength"] = len(metadata)
+    header["metaLength"] = len(compMetadata)
+    compMetadata += "\0" * calcPaddingLength(len(compMetadata))
+    header["length"] += len(compMetadata)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData) + compMetadata
 
 
 # testMetadataAbstractElementRequiredAttributes
@@ -2163,7 +2131,7 @@ def privateDataOffsetLengthTest1():
     >>> doctestFunction1(testPrivateDataOffsetAndLength, privateDataOffsetLengthTest1())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["privOffset"] = 0
     header["privLength"] = 0
     return packTestHeader(header)
@@ -2175,7 +2143,7 @@ def privateDataOffsetLengthTest2():
     >>> doctestFunction1(testPrivateDataOffsetAndLength, privateDataOffsetLengthTest2())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["privOffset"] = 0
     header["privLength"] = 1
     return packTestHeader(header)
@@ -2187,7 +2155,7 @@ def privateDataOffsetLengthTest3():
     >>> doctestFunction1(testPrivateDataOffsetAndLength, privateDataOffsetLengthTest3())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
+    header = defaultTestData(header=True)
     header["privOffset"] = 1
     header["privLength"] = 0
     return packTestHeader(header)
@@ -2199,13 +2167,11 @@ def privateDataOffsetLengthTest4():
     >>> doctestFunction1(testPrivateDataOffsetAndLength, privateDataOffsetLengthTest4())
     (None, 'PASS')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
-    header["privOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData))
+    header = defaultTestData(header=True)
+    header["privOffset"] = header["length"]
     header["privLength"] = 1
-    return packTestFont(header=header)
+    header["length"] += 1
+    return packTestHeader(header)
 
 def privateDataOffsetLengthTest5():
     """
@@ -2214,13 +2180,11 @@ def privateDataOffsetLengthTest5():
     >>> doctestFunction1(testPrivateDataOffsetAndLength, privateDataOffsetLengthTest5())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
-    header["privOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) - 4
+    header = defaultTestData(header=True)
+    header["privOffset"] = header["length"] - 4
     header["privLength"] = 1
-    return packTestFont(header=header)
+    header["length"] += 1
+    return packTestHeader(header)
 
 def privateDataOffsetLengthTest6():
     """
@@ -2229,15 +2193,13 @@ def privateDataOffsetLengthTest6():
     >>> doctestFunction1(testPrivateDataOffsetAndLength, privateDataOffsetLengthTest6())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 2
-    header["metaOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData))
-    header["metaLength"] = 1
-    header["privOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) - 1
-    header["privLength"] = 1
-    return packTestFont(header=header)
+    header = defaultTestData(header=True)
+    header["metaOffset"] = header["length"]
+    header["metaLength"] = 4
+    header["privOffset"] = header["length"] + 2
+    header["privLength"] = 4
+    header["length"] += 8
+    return packTestHeader(header)
 
 def privateDataOffsetLengthTest7():
     """
@@ -2246,13 +2208,11 @@ def privateDataOffsetLengthTest7():
     >>> doctestFunction1(testPrivateDataOffsetAndLength, privateDataOffsetLengthTest7())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData))
-    header["privOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 2
+    header = defaultTestData(header=True)
+    header["privOffset"] = header["length"] + 2
     header["privLength"] = 1
-    return packTestFont(header=header)
+    header["length"] += 1
+    return packTestHeader(header)
 
 def privateDataOffsetLengthTest8():
     """
@@ -2261,13 +2221,11 @@ def privateDataOffsetLengthTest8():
     >>> doctestFunction1(testPrivateDataOffsetAndLength, privateDataOffsetLengthTest8())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
-    header["privOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) 
+    header = defaultTestData(header=True)
+    header["privOffset"] = header["length"]
     header["privLength"] = 2
-    return packTestFont(header=header)
+    header["length"] += 1
+    return packTestHeader(header)
 
 def privateDataOffsetLengthTest9():
     """
@@ -2276,13 +2234,11 @@ def privateDataOffsetLengthTest9():
     >>> doctestFunction1(testPrivateDataOffsetAndLength, privateDataOffsetLengthTest9())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
-    header["privOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
+    header = defaultTestData(header=True)
+    header["privOffset"] = header["length"]
     header["privLength"] = 2
-    return packTestFont(header=header)
+    header["length"] += 1
+    return packTestHeader(header)
 
 def privateDataOffsetLengthTest10():
     """
@@ -2291,13 +2247,11 @@ def privateDataOffsetLengthTest10():
     >>> doctestFunction1(testPrivateDataOffsetAndLength, privateDataOffsetLengthTest10())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
-    header["privOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 4
+    header = defaultTestData(header=True)
+    header["privOffset"] = header["length"] + 4
     header["privLength"] = 1
-    return packTestFont(header=header)
+    header["length"] += 2
+    return packTestHeader(header)
 
 def privateDataOffsetLengthTest11():
     """
@@ -2306,13 +2260,11 @@ def privateDataOffsetLengthTest11():
     >>> doctestFunction1(testPrivateDataOffsetAndLength, privateDataOffsetLengthTest11())
     (None, 'ERROR')
     """
-    header = dict(testDataHeaderDict)
-    header["numTables"] = len(testDataDirectoryList)
-    offset = headerSize + (directorySize * len(testDataDirectoryList))
-    header["length"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 3
-    header["privOffset"] = offset + (len(testDataDirectoryList) * len(testDataTableData)) + 1
-    header["privLength"] = 2
-    return packTestFont(header=header)
+    header = defaultTestData(header=True)
+    header["privOffset"] = header["length"] + 3
+    header["privLength"] = 1
+    header["length"] += 2
+    return packTestHeader(header)
 
 if __name__ == "__main__":
     import doctest
