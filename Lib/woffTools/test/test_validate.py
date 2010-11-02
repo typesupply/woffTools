@@ -1106,47 +1106,90 @@ def metadataOffsetLengthTest10():
 
 
 # testMetadataPadding
-#
-#def metadataPaddingTest1():
-#    """
-#    Valid padding: No padding needed. No private data.
-#
-#    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest1())
-#    (None, 'PASS')
-#    """
-#    header = dict(testDataHeaderDict)
-#    metadata = "a" * 8
-#    metaLength = len(metadata)
-#    metaOrigLength = metaLength + 1
-#    return packTestFont(header=header, compressMetadata=False, metadata=metadata, metaLength=metaLength, metaOrigLength=metaOrigLength)
-#
-#def metadataPaddingTest2():
-#    """
-#    Valid padding: No padding needed. Have private data.
-#
-#    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest2())
-#    (None, 'PASS')
-#    """
-#    header = dict(testDataHeaderDict)
-#    metadata = "a" * 8
-#    metaLength = len(metadata)
-#    metaOrigLength = metaLength + 1
-#    privateData = "\0" * 4
-#    return packTestFont(header=header, compressMetadata=False, metadata=metadata, metaLength=metaLength, metaOrigLength=metaOrigLength, privateData=privateData)
-#
-#def metadataPaddingTest3():
-#    """
-#    Invalid padding: Padding needed. No private data.
-#
-#    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest3())
-#    (None, 'PASS')
-#    """
-#    header = dict(testDataHeaderDict)
-#    metadata = "a" * 8
-#    metaLength = 7
-#    metaOrigLength = metaLength + 1
-#    return packTestFont(header=header, compressMetadata=False, metadata=metadata, metaLength=metaLength, metaOrigLength=metaOrigLength)
-#
+
+def metadataPaddingTest1():
+    """
+    Valid padding: No padding needed. No private data.
+
+    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest1())
+    (None, 'PASS')
+    """
+    header = defaultTestData(header=True)
+    header["metaOffset"] = header["length"]
+    header["metaLength"] = 8
+    header["length"] += 8
+    return packTestHeader(header)
+
+def metadataPaddingTest2():
+    """
+    Valid padding: Padded with  null. No private data.
+
+    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest2())
+    (None, 'PASS')
+    """
+    header = defaultTestData(header=True)
+    metadata = "\0" * 8
+    header["metaOffset"] = header["length"]
+    header["metaLength"] = 7
+    header["length"] += 8
+    return packTestHeader(header) + metadata
+
+def metadataPaddingTest3():
+    """
+    Invalid padding: Padded with something other than null. No private data.
+
+    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest3())
+    (None, 'ERROR')
+    """
+    header = defaultTestData(header=True)
+    metadata = "A" * 8
+    header["metaOffset"] = header["length"]
+    header["metaLength"] = 7
+    header["length"] += 8
+    return packTestHeader(header) + metadata
+
+def metadataPaddingTest4():
+    """
+    Valid padding: No padding needed. Have private data.
+
+    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest4())
+    (None, 'PASS')
+    """
+    header = defaultTestData(header=True)
+    header["metaOffset"] = header["length"]
+    header["metaLength"] = 8
+    header["privOffset"] = header["metaOffset"] + 8
+    return packTestHeader(header)
+
+def metadataPaddingTest5():
+    """
+    Valid padding: Padded with  null. Have private data.
+
+    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest5())
+    (None, 'PASS')
+    """
+    header = defaultTestData(header=True)
+    metadata = "\0" * 8
+    header["metaOffset"] = header["length"]
+    header["metaLength"] = 7
+    header["privOffset"] = header["metaOffset"] + 8
+    header["length"] += 8
+    return packTestHeader(header) + metadata
+
+def metadataPaddingTest6():
+    """
+    Invalid padding: Padded with something other than null. Have private data.
+
+    >>> doctestFunction1(testMetadataPadding, metadataPaddingTest6())
+    (None, 'ERROR')
+    """
+    header = defaultTestData(header=True)
+    metadata = "\A" * 8
+    header["metaOffset"] = header["length"]
+    header["metaLength"] = 7
+    header["privOffset"] = header["metaOffset"] + 8
+    header["length"] += 8
+    return packTestHeader(header) + metadata
 
 
 # testMetadataIsCompressed

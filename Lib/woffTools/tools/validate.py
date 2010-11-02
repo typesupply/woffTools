@@ -17,13 +17,12 @@ TO DO:
 - test for overlapping tables
 - review spec testable assertions and make sure they are all covered here
 - check conformance levels of all tests
+- for padding checks, compare the stored padding to \0, don't just
+  test the edge for a remainder.
 """
 
 """
 Testable Assertions (File Format):
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-afterfonttable
-http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-noprivatepad
 http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-wellformed
 http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-encoding
 http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-schemavalid
@@ -584,6 +583,7 @@ def testMetadataOffsetAndLength(data, reporter):
     - offset + length is greater than the available length.
     - length is longer than the available length.
     - offset begins immediately after last table.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-afterfonttable
     - offset begins on 4-byte boundary.
     """
     header = unpackHeader(data)
@@ -628,6 +628,30 @@ def testMetadataOffsetAndLength(data, reporter):
         reporter.logError(message=offsetErrorMessage)
     else:
         reporter.logPass(message="The metadata has properly set offset and length.")
+
+def testMetadataPadding(data, reporter):
+    """
+    - metadata must end on a 4-byte boundary, padded with null bytes as needed
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-noprivatepad
+    """
+    header = unpackHeader(data)
+    offset = header["metaOffset"]
+    length = header["metaLength"]
+    if header["privOffset"] != 0:
+        end = header["privOffset"]
+    else:
+        end = header["length"]
+    if not length % 4:
+        reporter.logPass(message="The metadata ends on a 4-byte boundary.")
+    else:
+        expectedPadding = "\0" * calcPaddingLength(length)
+        metadata = data[offset:end]
+        padding = metadata[length:]
+        if padding != expectedPadding:
+            reporter.logError(message="The meadata is not properly padded to a 4-byte boundary.")
+        else:
+            reporter.logPass(message="The meadata is properly padded to a 4-byte boundary.")
 
 def testMetadataIsCompressed(data, reporter):
     """
@@ -1142,6 +1166,7 @@ def testPrivateDataOffsetAndLength(data, reporter):
     - length is longer than the available length.
     - offset begins immediately after last table.
     - offset begins on 4-byte boundary.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
     """
     header = unpackHeader(data)
     privOffset = header["privOffset"]
@@ -1969,6 +1994,7 @@ tests = [
     ("Tables - checkSumAdjustment",      testHeadCheckSumAdjustment),
     ("Tables - DSIG",                    testDSIG),
     ("Metadata - Offset and Length",     testMetadataOffsetAndLength),
+    ("Metadata - Padding",               testMetadataPadding),
     ("Metadata - Compression Applied",   testMetadataIsCompressed),
     ("Metadata - Decompression",         testMetadataDecompression),
     ("Metadata - Original Length",       testMetadataDecompressedLength),
