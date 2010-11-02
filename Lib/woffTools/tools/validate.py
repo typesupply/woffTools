@@ -23,22 +23,10 @@ TO DO:
 
 """
 Testable Assertions (File Format):
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-wellformed
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-encoding
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-schemavalid
-http://dev.w3.org/webfonts/WOFF/spec/#conform-textlang
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadataelement-required
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadataversion-required
 http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-extensionelements
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-vendor-required
-http://dev.w3.org/webfonts/WOFF/spec/#conform-creditnamerequired
-http://dev.w3.org/webfonts/WOFF/spec/#conform-licensee-required
 http://dev.w3.org/webfonts/WOFF/spec/#conform-namerequired
 http://dev.w3.org/webfonts/WOFF/spec/#conform-valuerequired
-http://dev.w3.org/webfonts/WOFF/spec/#conform-private
 http://dev.w3.org/webfonts/WOFF/spec/#conform-private-last
-http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padalign
-http://dev.w3.org/webfonts/WOFF/spec/#conform-afterprivate
 
 http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
 I'm not sure how to test for this one. The compression validity is
@@ -46,6 +34,9 @@ checked if the table has been compressed. Maybe that is enough?
 
 http://dev.w3.org/webfonts/WOFF/spec/#conform-sameorder
 This can't be tested without access the original SNFT data.
+
+http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-encoding
+This one is going to be complicated. Maybe someone on the list can help.
 """
 
 # import
@@ -649,9 +640,9 @@ def testMetadataPadding(data, reporter):
         metadata = data[offset:end]
         padding = metadata[length:]
         if padding != expectedPadding:
-            reporter.logError(message="The meadata is not properly padded to a 4-byte boundary.")
+            reporter.logError(message="The metadata is not properly padded to a 4-byte boundary.")
         else:
-            reporter.logPass(message="The meadata is properly padded to a 4-byte boundary.")
+            reporter.logPass(message="The metadata is properly padded to a 4-byte boundary.")
 
 def testMetadataIsCompressed(data, reporter):
     """
@@ -708,6 +699,7 @@ def testMetadataParse(data, reporter):
     """
     Tests:
     - metadata can be parsed
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-wellformed
     """
     if shouldSkipMetadataTest(data, reporter):
         return
@@ -722,6 +714,7 @@ def testMetadataParse(data, reporter):
 def testMetadataStructure(data, reporter):
     """
     Refer to lower level tests.
+    http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-schemavalid
     """
     if shouldSkipMetadataTest(data, reporter):
         return
@@ -733,7 +726,9 @@ def testMetadataStructureTopElement(tree, reporter):
     """
     Tests:
     - metadata is top element
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadataelement-required
     - version is only attribute of top element
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadataversion-required
     - version is 1.0
     - text in element
     """
@@ -848,6 +843,7 @@ def testMetadataVendor(element, reporter):
     """
     Tests:
     - name is present and contains text
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-vendor-required
     - url is not present (note)
     - url is not empty
     - unknown attributes
@@ -881,6 +877,7 @@ def testMetadataCredit(element, reporter):
     """
     Tests:
     - name is present and contains text
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-creditnamerequired
     - url is not present (note)
     - url is not empty
     - role is not present (note)
@@ -992,6 +989,7 @@ def testMetadataLicensee(element, reporter):
     """
     Tests:
     - name is present and contains text
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-licensee-required
     - unknown attributes
     - child-elements
     - text
@@ -1121,6 +1119,7 @@ def testMetadataAbstractTextElements(element, reporter, tag):
     - no unknown attributes
     - no child elements
     - optional language
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-textlang
     - has text
     """
     haveError = False
@@ -1160,6 +1159,7 @@ def testPrivateDataOffsetAndLength(data, reporter):
     Tests:
     - if offset is zero, length is 0. vice-versa.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-private
     - offset is before the end of the header/directory.
     - offset is after the end of the file.
     - offset + length is greater than the available length.
@@ -1167,6 +1167,7 @@ def testPrivateDataOffsetAndLength(data, reporter):
     - offset begins immediately after last table.
     - offset begins on 4-byte boundary.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padalign
     """
     header = unpackHeader(data)
     privOffset = header["privOffset"]
@@ -1212,6 +1213,26 @@ def testPrivateDataOffsetAndLength(data, reporter):
         reporter.logError(message=offsetErrorMessage)
     else:
         reporter.logPass(message="The private data has properly set offset and length.")
+
+def testPrivateDataPadding(data, reporter):
+    """
+    - private data must end on a 4-byte boundary, padded with null bytes as needed
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-afterprivate
+    """
+    header = unpackHeader(data)
+    offset = header["privOffset"]
+    length = header["privLength"]
+    end = header["length"]
+    if not length % 4:
+        reporter.logPass(message="The private data ends on a 4-byte boundary.")
+    else:
+        expectedPadding = "\0" * calcPaddingLength(length)
+        privateData = data[offset:end]
+        padding = privateData[length:]
+        if padding != expectedPadding:
+            reporter.logError(message="The private data is not properly padded to a 4-byte boundary.")
+        else:
+            reporter.logPass(message="The private data is properly padded to a 4-byte boundary.")
 
 # -------------------------
 # Support: Misc. SFNT Stuff
@@ -2001,6 +2022,7 @@ tests = [
     ("Metadata - Parse",                 testMetadataParse),
     ("Metadata - Structure",             testMetadataStructure),
     ("Private Data - Offset and Length", testPrivateDataOffsetAndLength),
+    ("Private Data - Padding",           testPrivateDataPadding),
 ]
 
 def validateFont(path, options, writeFile=True):

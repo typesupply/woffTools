@@ -54,6 +54,7 @@ from woffTools.tools.validate import structPack, \
     testMetadataUniqueid,\
     testMetadataVendor,\
     testPrivateDataOffsetAndLength,\
+    testPrivateDataPadding,\
     testTableDataStart,\
     testTableDecompression,\
     testTablePadding,\
@@ -2308,6 +2309,49 @@ def privateDataOffsetLengthTest11():
     header["privLength"] = 1
     header["length"] += 2
     return packTestHeader(header)
+
+# testPrivateDataPadding
+
+def privateDataPaddingTest1():
+    """
+    Valid padding: No padding needed.
+
+    >>> doctestFunction1(testPrivateDataPadding, privateDataPaddingTest1())
+    (None, 'PASS')
+    """
+    header = defaultTestData(header=True)
+    header["priveOffset"] = header["length"]
+    header["privLength"] = 8
+    header["length"] += 8
+    return packTestHeader(header)
+
+def privateDataPaddingTest2():
+    """
+    Valid padding: Padded with  null.
+
+    >>> doctestFunction1(testPrivateDataPadding, privateDataPaddingTest2())
+    (None, 'PASS')
+    """
+    header = defaultTestData(header=True)
+    privateData = "\0" * 8
+    header["privOffset"] = header["length"]
+    header["privLength"] = 7
+    header["length"] += 8
+    return packTestHeader(header) + privateData
+
+def privateDataPaddingTest3():
+    """
+    Invalid padding: Padded with something other than null.
+
+    >>> doctestFunction1(testPrivateDataPadding, privateDataPaddingTest3())
+    (None, 'ERROR')
+    """
+    header = defaultTestData(header=True)
+    privateData = "A" * 8
+    header["privOffset"] = header["length"]
+    header["privLength"] = 7
+    header["length"] += 8
+    return packTestHeader(header) + privateData
 
 if __name__ == "__main__":
     import doctest
