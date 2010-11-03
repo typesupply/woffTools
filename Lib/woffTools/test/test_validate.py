@@ -82,24 +82,9 @@ def doctestFunction2(func, data):
     r = [i["type"] for i in reporter.testResults[-1]]
     return r
 
-def doctestMetadataAbstractElementFunction(func, element,
-    requiredAttributes=None, optionalAttributes=None,
-    requireText=None,
-    requiredChildElements=None, missingChildElementsAlertLevel=None,
-    noteMissingOptionalAttributes=None):
+def doctestMetadataAbstractElementFunction(func, element, **kwargs):
     reporter = HTMLReporter()
     reporter.logTestTitle("doctest")
-    kwargs = {}
-    if requiredAttributes is not None:
-        kwargs["requiredAttributes"] = requiredAttributes
-    if optionalAttributes is not None:
-        kwargs["optionalAttributes"] = optionalAttributes
-    if requiredChildElements:
-        kwargs["requiredChildElements"] = requiredChildElements
-    if missingChildElementsAlertLevel:
-        kwargs["missingChildElementsAlertLevel"] = missingChildElementsAlertLevel
-    if noteMissingOptionalAttributes is not None:
-        kwargs["noteMissingOptionalAttributes"] = noteMissingOptionalAttributes
     func(element, reporter, "test", **kwargs)
     return [i["type"] for i in reporter.testResults[-1]]
 
@@ -1641,6 +1626,24 @@ def metadataAbstractElementIllegalChildElementTest2():
     ...     testMetadataAbstractElementIllegalChildElements,
     ...     metadataAbstractElementIllegalChildElementTest2())
     ['ERROR']
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <test>
+        <foo />
+        <bar />
+    </test>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataAbstractElementIllegalChildElementTest2():
+    """
+    Child elements, child elements are optional.
+
+    >>> doctestMetadataAbstractElementFunction(
+    ...     testMetadataAbstractElementIllegalChildElements,
+    ...     metadataAbstractElementIllegalChildElementTest2(),
+    ...     optionalChildElements=["foo", "bar"])
+    []
     """
     metadata = """<?xml version="1.0" encoding="UTF-8"?>
     <test>
