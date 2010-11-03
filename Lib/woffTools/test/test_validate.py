@@ -28,6 +28,7 @@ from woffTools.tools.validate import structPack, \
     testMetadataAbstractElementIllegalText,\
     testMetadataAbstractElementKnownChildElements,\
     testMetadataAbstractElementOptionalAttributes,\
+    testMetadataAbstractElementOptionalChildElements,\
     testMetadataAbstractElementRequiredAttributes,\
     testMetadataAbstractElementRequiredText,\
     testMetadataAbstractElementUnknownAttributes,\
@@ -1738,6 +1739,77 @@ def metadataAbstractElementRequiredChildElementTest5():
     </test>
     """
     return ElementTree.fromstring(metadata)
+
+
+# testMetadataAbstractElementOptionalChildElements
+
+def metadataAbstractElementOptionalChildElementTest1():
+    """
+    No child elements. No optional child elements.
+
+    >>> doctestMetadataAbstractElementFunction(
+    ...     testMetadataAbstractElementOptionalChildElements,
+    ...     metadataAbstractElementOptionalChildElementTest1(),
+    ...     optionalChildElements=[])
+    []
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <test>
+    </test>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataAbstractElementOptionalChildElementTest2():
+    """
+    No child elements. Optional child elements. Don't note.
+
+    >>> doctestMetadataAbstractElementFunction(
+    ...     testMetadataAbstractElementOptionalChildElements,
+    ...     metadataAbstractElementOptionalChildElementTest2(),
+    ...     optionalChildElements=["foo"],
+    ...     noteMissingChildElements=False)
+    []
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <test>
+    </test>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataAbstractElementOptionalChildElementTest3():
+    """
+    No child elements. Optional child elements. Do note.
+
+    >>> doctestMetadataAbstractElementFunction(
+    ...     testMetadataAbstractElementOptionalChildElements,
+    ...     metadataAbstractElementOptionalChildElementTest3(),
+    ...     optionalChildElements=["foo"],
+    ...     noteMissingChildElements=True)
+    ['NOTE']
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <test>
+    </test>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataAbstractElementOptionalChildElementTest4():
+    """
+    Child elements. Optional child elements.
+
+    >>> doctestMetadataAbstractElementFunction(
+    ...     testMetadataAbstractElementOptionalChildElements,
+    ...     metadataAbstractElementOptionalChildElementTest4(),
+    ...     optionalChildElements=["foo"])
+    []
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <test>
+        <foo />
+    </test>
+    """
+    return ElementTree.fromstring(metadata)
+
 
 
 # testMetadataAbstractTextElements
