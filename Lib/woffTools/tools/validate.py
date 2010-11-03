@@ -857,9 +857,10 @@ def testMetadataDuplicateElements(tree, reporter):
 def testMetadataUniqueid(element, reporter):
     """
     Tests:
-    - id is present and contains text
-    - unknown attributes
-    - child-elements
+    - The id attribute is required.
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should be no text.
     """
     required = "id".split(" ")
     haveError = testMetadataAbstractElement(element, reporter, tag="uniqueid", requiredAttributes=required)
@@ -869,15 +870,15 @@ def testMetadataUniqueid(element, reporter):
 def testMetadataVendor(element, reporter):
     """
     Tests:
-    - name is present and contains text
+    - The name attribute is required.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-vendor-required
-    - url is not present (note)
-    - url is not empty
-    - unknown attributes
-    - child-elements
+    - The url attribute is optional.
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should be no text.
     """
-    required = "name".split(" ")
-    optional = "url".split(" ")
+    required = ["name"]
+    optional = ["url"]
     haveError = testMetadataAbstractElement(element, reporter, tag="vendor", requiredAttributes=required, optionalAttributes=optional)
     if not haveError:
         reporter.logPass(message="The \"vendor\" element is properly formatted.")
@@ -885,13 +886,13 @@ def testMetadataVendor(element, reporter):
 def testMetadataCredits(element, reporter):
     """
     Tests:
-    - no attributes
-    - text
-    - has at least one child element
-    - unknown child elements
+    There should be at least one credit child element.
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should be no text.
     """
     haveError = True
-    if testMetadataAbstractElement(element, reporter, tag="vendor", requiredChildElements="credit".split(" ")):
+    if testMetadataAbstractElement(element, reporter, tag="vendor", requiredChildElements=["credit"]):
         haveError = True
     if not haveError:
         reporter.logPass(message="The \"credits\" element is properly formatted.")
@@ -903,14 +904,13 @@ def testMetadataCredits(element, reporter):
 def testMetadataCredit(element, reporter):
     """
     Tests:
-    - name is present and contains text
+    - The name attribute is required.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-creditnamerequired
-    - url is not present (note)
-    - url is not empty
-    - role is not present (note)
-    - role is not empty
-    - unknown attributes
-    - child-elements
+    - The url attribute is optional.
+    - The role attribute is optional.
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should be no text.
     """
     required = "name".split(" ")
     optional = "url role".split(" ")
@@ -921,12 +921,12 @@ def testMetadataCredit(element, reporter):
 def testMetadataDescription(element, reporter):
     """
     Tests:
-    - no attributes
-    - no text
-    - has at least one text child element
-    - unknown child elements
-    - text element validity
-    - duplicate languages
+    - There must be at least one text child-element.
+    - The text element(s) must be valid.
+    - There should be no duplicated languages in the text elements.
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should be no text.
     """
     haveError = False
     if testMetadataAbstractElement(element, reporter, tag="description", requiredChildElements="text".split(" "), missingChildElementsAlertLevel="warning"):
@@ -944,13 +944,14 @@ def testMetadataDescription(element, reporter):
 def testMetadataLicense(element, reporter):
     """
     Tests:
-    - optional attributes
-    - no unknown attributes
-    - no text
-    - has at least one text child element (warn)
-    - unknown child elements
-    - text element validity
-    - duplicate languages
+    - The url attribute is optional.
+    - The id attribute is optional.
+    - There must be at least one text child-element.
+    - The text element(s) must be valid.
+    - There should be no duplicated languages in the text elements.
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should be no text.
     """
     optional = "url id".split(" ")
     haveError = False
@@ -969,12 +970,12 @@ def testMetadataLicense(element, reporter):
 def testMetadataCopyright(element, reporter):
     """
     Tests:
-    - no attributes
-    - no text
-    - has at least one text child element
-    - unknown child elements
-    - text element validity
-    - duplicate languages
+    - There must be at least one text child-element.
+    - The text element(s) must be valid.
+    - There should be no duplicated languages in the text elements.
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should be no text.
     """
     haveError = False
     if testMetadataAbstractElement(element, reporter, tag="copyright", requiredChildElements="text".split(" "), missingChildElementsAlertLevel="warning"):
@@ -992,12 +993,12 @@ def testMetadataCopyright(element, reporter):
 def testMetadataTrademark(element, reporter):
     """
     Tests:
-    - no attributes
-    - no text
-    - has at least one text child element
-    - unknown child elements
-    - text element validity
-    - duplicate languages
+    - There must be at least one text child-element.
+    - The text element(s) must be valid.
+    - There should be no duplicated languages in the text elements.
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should be no text.
     """
     haveError = False
     if testMetadataAbstractElement(element, reporter, tag="trademark", requiredChildElements="text".split(" "), missingChildElementsAlertLevel="warning"):
@@ -1015,11 +1016,11 @@ def testMetadataTrademark(element, reporter):
 def testMetadataLicensee(element, reporter):
     """
     Tests:
-    - name is present and contains text
+    - The name attribute is required.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-licensee-required
-    - unknown attributes
-    - child-elements
-    - text
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should be no text.
     """
     required = "name".split(" ")
     haveError = testMetadataAbstractElement(element, reporter, tag="vendor", requiredAttributes=required)
@@ -1029,13 +1030,13 @@ def testMetadataLicensee(element, reporter):
 def testMetadataExtension(element, reporter):
     """
     Tests:
-    - id attribute (optional)
-    - optional name sub element
-    - has at least one item child element
-    - unknown child elements
-    - no text
-    - unknown attributes
-    - duplicate languages in name
+    - The id attribute is optional.
+    - The optional name element may occur any number of times.
+    - There should be no duplicated languages in the name elements.
+    - There must be at least one item child-element.
+    - There should be no unknown attributes.
+    - There should be no unknown child elements.
+    - There should be no text.
     """
     haveError = False
     if testMetadataAbstractElement(element, reporter, tag="extension", optionalAttributes=["id"], requiredChildElements=["item"], optionalChildElements=["name"], noteMissingOptionalAttributes=False):
@@ -1054,25 +1055,25 @@ def testMetadataExtension(element, reporter):
 
 def testMetadataExtensionName(element, reporter):
     """
-    - optional lang attribute
-    - has text
-    - no child elements
-    - unknown attributes
+    - The lang attribute is optional.
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should text.
     """
     haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
     return haveError
 
 def testMetadataExtensionItem(element, reporter):
     """
-    - option id attribute
-    - no text
-    - unknown attributes
-    - at least one name child-element
+    - The id attribute is optional.
+    - There should be no text.
+    - There should be no unknown attributes.
+    - There must be at least one name child element.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-namerequired
-    - at least one value child element
+    - There must be at least one value child element.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-valuerequired
-    - duplicate languages in name
-    - duplicate languages in value
+    - There should be no duplicated languages in the name elements.
+    - There should be no duplicated languages in the value elements.
     """
     haveError = False
     if testMetadataAbstractElement(element, reporter, tag="extension", optionalAttributes=["id"], requiredChildElements=["name", "value"], noteMissingOptionalAttributes=False):
@@ -1097,20 +1098,20 @@ def testMetadataExtensionItem(element, reporter):
 
 def testMetadataExtensionItemName(element, reporter):
     """
-    - optional lang attribute
-    - has text
-    - no child elements
-    - unknown attributes
+    - The lang attribute is optional.
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should text.
     """
     haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
     return haveError
 
 def testMetadataExtensionItemValue(element, reporter):
     """
-    - optional lang attribute
-    - has text
-    - no child elements
-    - unknown attributes
+    - The lang attribute is optional.
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - There should text.
     """
     haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
     return haveError
@@ -1251,11 +1252,11 @@ def testMetadataAbstractElementOptionalChildElements(element, reporter, tag, opt
 def testMetadataAbstractTextElements(element, reporter, tag):
     """
     Tests:
-    - no unknown attributes
-    - no child elements
-    - optional language
+    - There should be no unknown attributes.
+    - There should be no child elements.
+    - The lang attribute is optional.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-textlang
-    - has text
+    - Text must be present.
     """
     haveError = False
     for child in element:
@@ -1268,7 +1269,7 @@ def testMetadataAbstractTextElements(element, reporter, tag):
 def testMetadataAbstractElementLanguages(element, reporter, tag, childTag="text"):
     """
     Tests:
-    - duplicate languages
+    - There should be no duplicated languages in the text elements.
     """
     haveError = False
     languages = {}
@@ -1292,15 +1293,16 @@ def testMetadataAbstractElementLanguages(element, reporter, tag, childTag="text"
 def testPrivateDataOffsetAndLength(data, reporter):
     """
     Tests:
-    - if offset is zero, length is 0. vice-versa.
+    - If the private data offset is zero, the private data length must zero.
+      If the private data length is zero, the private data offset must be zero.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-private
-    - offset is before the end of the header/directory.
-    - offset is after the end of the file.
-    - offset + length is greater than the available length.
-    - length is longer than the available length.
-    - offset begins immediately after last table.
-    - offset begins on 4-byte boundary.
+    - The private data offset must not be before the end of the header/directory.
+    - The private data offset must not be after the end of the file.
+    - The private data offset + length must not be greater than the available length.
+    - The private data length must not be longer than the available length.
+    - The private data offset must begin immediately after last table.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-afterfonttable
+    - The private data offset must begin on 4-byte boundary.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
       http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padalign
     """
@@ -1351,7 +1353,7 @@ def testPrivateDataOffsetAndLength(data, reporter):
 
 def testPrivateDataPadding(data, reporter):
     """
-    - private data must end on a 4-byte boundary, padded with null bytes as needed
+    - The private data must end on a 4-byte boundary, padded with null bytes as needed.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-afterprivate
     """
     header = unpackHeader(data)
