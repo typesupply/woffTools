@@ -301,7 +301,7 @@ def flavorTest1():
     Unknown flavor.
 
     >>> doctestFunction1(testHeaderFlavor, flavorTest1())
-    (None, 'ERROR')
+    (None, 'WARNING')
     """
     header = defaultTestData(header=True)
     header["flavor"] = "XXXX"

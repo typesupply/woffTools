@@ -118,7 +118,7 @@ headerSize = structCalcSize(headerFormat)
 def testHeaderSize(data, reporter):
     """
     Tests:
-    - length of file is long enough to contain header.
+    - Length of the data must be at least as long as the required header size.
     """
     if len(data) < headerSize:
         reporter.logError(message="The header is not the proper length.")
@@ -129,7 +129,7 @@ def testHeaderSize(data, reporter):
 def testHeaderStructure(data, reporter):
     """
     Tests:
-    - header structure by trying to unpack header.
+    - Header must be the proper structure.
     """
     try:
         structUnpack(headerFormat, data)
@@ -141,7 +141,7 @@ def testHeaderStructure(data, reporter):
 def testHeaderSignature(data, reporter):
     """
     Tests:
-    - signature is "wOFF"
+    - The signature must be "wOFF".
       http://dev.w3.org/webfonts/WOFF/spec/#conform-magicnumber
     """
     header = unpackHeader(data)
@@ -155,15 +155,15 @@ def testHeaderSignature(data, reporter):
 def testHeaderFlavor(data, reporter):
     """
     Tests:
-    - flavor is OTTO, 0x00010000 or true.
-    - if flavor is OTTO, CFF is present.
-    - if flavor is not OTTO, CFF is not present.
+    - The flavor should be OTTO, 0x00010000 or true. Warn if another value is found.
+    - If the flavor is OTTO, the CFF table must be present.
+    - If the flavor is not OTTO, the CFF must not be present.
     - flavor could not be validated because the directory could not be unpacked.
     """
     header = unpackHeader(data)
     flavor = header["flavor"]
     if flavor not in ("OTTO", "\000\001\000\000", "true"):
-        reporter.logError(message="Unknown flavor: %s." % flavor)
+        reporter.logWarning(message="Unknown flavor: %s." % flavor)
     else:
         try:
             tags = [table["tag"] for table in unpackDirectory(data)]
