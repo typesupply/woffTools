@@ -9,14 +9,12 @@ This can also be used as a command line tool for validating WOFF files.
 
 """
 TO DO:
+- add the missing tests from the testable assertions below
+- test for proper ordering of table data, metadata, private data
+- check conformance levels of all tests
 - merge metadata and table info from woff-info
 - split length and offset tests into smaller functions that can be more easily doctested
 - split testDirectoryBorders into smaller functions
-- test for proper ordering of table data, metadata, private data
-- test for overlapping tables
-- check conformance levels of all tests
-- for padding checks, compare the stored padding to \0, don't just
-  test the edge for a remainder.
 """
 
 """
