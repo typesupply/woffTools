@@ -31,7 +31,7 @@ from woffTools.tools.validate import structPack, \
     testMetadataAbstractElementRequiredAttributes,\
     testMetadataAbstractElementRequiredText,\
     testMetadataAbstractElementUnknownAttributes,\
-    testMetadataAbstractTextElementLanguages,\
+    testMetadataAbstractElementLanguages,\
     testMetadataAbstractTextElements,\
     testMetadataChildElements,\
     testMetadataCopyright,\
@@ -1758,14 +1758,14 @@ def metadataAbstractElementTextTest1():
     return ElementTree.fromstring(metadata)
 
 
-# testMetadataAbstractTextElementLanguages
+# testMetadataAbstractElementLanguages
 
 def metadataAbstractElementTextLanguagesTest1():
     """
     Valid.
 
     >>> doctestMetadataAbstractElementFunction(
-    ...     testMetadataAbstractTextElementLanguages,
+    ...     testMetadataAbstractElementLanguages,
     ...     metadataAbstractElementTextLanguagesTest1())
     []
     """
@@ -1783,7 +1783,7 @@ def metadataAbstractElementTextLanguagesTest2():
     Duplicate undefined.
 
     >>> doctestMetadataAbstractElementFunction(
-    ...     testMetadataAbstractTextElementLanguages,
+    ...     testMetadataAbstractElementLanguages,
     ...     metadataAbstractElementTextLanguagesTest2())
     ['ERROR']
     """
@@ -1800,7 +1800,7 @@ def metadataAbstractElementTextLanguagesTest3():
     Duplicate defined.
 
     >>> doctestMetadataAbstractElementFunction(
-    ...     testMetadataAbstractTextElementLanguages,
+    ...     testMetadataAbstractElementLanguages,
     ...     metadataAbstractElementTextLanguagesTest3())
     ['ERROR']
     """

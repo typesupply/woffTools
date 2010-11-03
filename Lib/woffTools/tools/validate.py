@@ -13,7 +13,6 @@ TO DO:
 - split length and offset tests into smaller functions that can be more easily doctested
 - split testDirectoryBorders into smaller functions
 - test for proper ordering of table data, metadata, private data
-- test metadata extension element
 - test for overlapping tables
 - check conformance levels of all tests
 - for padding checks, compare the stored padding to \0, don't just
@@ -23,8 +22,6 @@ TO DO:
 """
 Testable Assertions (File Format):
 http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-extensionelements
-http://dev.w3.org/webfonts/WOFF/spec/#conform-namerequired
-http://dev.w3.org/webfonts/WOFF/spec/#conform-valuerequired
 http://dev.w3.org/webfonts/WOFF/spec/#conform-private-last
 
 http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
@@ -912,7 +909,7 @@ def testMetadataDescription(element, reporter):
     if testMetadataAbstractTextElements(element, reporter, "description"):
         haveError = True
     # test for duplicate text elements
-    if testMetadataAbstractTextElementLanguages(element, reporter, "description"):
+    if testMetadataAbstractElementLanguages(element, reporter, "description"):
         haveError = True
     # test for text element compliance
     if not haveError:
@@ -937,7 +934,7 @@ def testMetadataLicense(element, reporter):
     if testMetadataAbstractTextElements(element, reporter, "license"):
         haveError = True
     # test for duplicate text elements
-    if testMetadataAbstractTextElementLanguages(element, reporter, "license"):
+    if testMetadataAbstractElementLanguages(element, reporter, "license"):
         haveError = True
     # test for text element compliance
     if not haveError:
@@ -960,7 +957,7 @@ def testMetadataCopyright(element, reporter):
     if testMetadataAbstractTextElements(element, reporter, "copyright"):
         haveError = True
     # test for duplicate text elements
-    if testMetadataAbstractTextElementLanguages(element, reporter, "copyright"):
+    if testMetadataAbstractElementLanguages(element, reporter, "copyright"):
         haveError = True
     # test for text element compliance
     if not haveError:
@@ -983,7 +980,7 @@ def testMetadataTrademark(element, reporter):
     if testMetadataAbstractTextElements(element, reporter, "trademark"):
         haveError = True
     # test for duplicate text elements
-    if testMetadataAbstractTextElementLanguages(element, reporter, "trademark"):
+    if testMetadataAbstractElementLanguages(element, reporter, "trademark"):
         haveError = True
     # test for text element compliance
     if not haveError:
@@ -1007,9 +1004,12 @@ def testMetadataExtension(element, reporter):
     """
     Tests:
     - id attribute (optional)
-    - optional name sub element(s)
+    - optional name sub element
     - has at least one item child element
     - unknown child elements
+    - no text
+    - unknown attributes
+    - duplicate languages in name
     """
     haveError = False
     if testMetadataAbstractElement(element, reporter, tag="extension", optionalAttributes=["id"], requiredChildElements=["item"], optionalChildElements=["name"], noteMissingOptionalAttributes=False):
@@ -1019,6 +1019,7 @@ def testMetadataExtension(element, reporter):
         if child.tag == "name":
             if testMetadataExtensionName(child, reporter):
                 haveError = True
+    testMetadataAbstractElementLanguages(element, reporter, "extension", "name")
     # test item elements
     for child in element:
         if child.tag == "item":
@@ -1026,10 +1027,27 @@ def testMetadataExtension(element, reporter):
                 haveError = True
 
 def testMetadataExtensionName(element, reporter):
+    """
+    - optional lang attribute
+    - has text
+    - no child elements
+    - unknown attributes
+    """
     haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
     return haveError
 
 def testMetadataExtensionItem(element, reporter):
+    """
+    - option id attribute
+    - no text
+    - unknown attributes
+    - at least one name child-element
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-namerequired
+    - at least one value child element
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-valuerequired
+    - duplicate languages in name
+    - duplicate languages in value
+    """
     haveError = False
     if testMetadataAbstractElement(element, reporter, tag="extension", optionalAttributes=["id"], requiredChildElements=["name", "value"], noteMissingOptionalAttributes=False):
         haveError = True
@@ -1038,20 +1056,36 @@ def testMetadataExtensionItem(element, reporter):
         if child.tag == "name":
             if testMetadataExtensionItemName(child, reporter):
                 haveError = True
+    if testMetadataAbstractElementLanguages(element, reporter, "extension", "name"):
+        haveError = True
     # test value elements
     for child in element:
         if child.tag == "value":
             if testMetadataExtensionItemValue(child, reporter):
                 haveError = True
+    if testMetadataAbstractElementLanguages(element, reporter, "extension", "value"):
+        haveError = True
     if not haveError:
         reporter.logPass(message="The \"extension\" element is properly formatted.")
     return haveError
 
 def testMetadataExtensionItemName(element, reporter):
+    """
+    - optional lang attribute
+    - has text
+    - no child elements
+    - unknown attributes
+    """
     haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
     return haveError
 
 def testMetadataExtensionItemValue(element, reporter):
+    """
+    - optional lang attribute
+    - has text
+    - no child elements
+    - unknown attributes
+    """
     haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
     return haveError
 
@@ -1205,7 +1239,7 @@ def testMetadataAbstractTextElements(element, reporter, tag):
             haveError = True
     return haveError
 
-def testMetadataAbstractTextElementLanguages(element, reporter, tag):
+def testMetadataAbstractElementLanguages(element, reporter, tag, childTag="text"):
     """
     Tests:
     - duplicate languages
@@ -1213,7 +1247,7 @@ def testMetadataAbstractTextElementLanguages(element, reporter, tag):
     haveError = False
     languages = {}
     for child in element:
-        if child.tag != "text":
+        if child.tag != childTag:
             continue
         lang = child.attrib.get("lang", "undefined")
         if lang not in languages:
