@@ -21,17 +21,20 @@ TO DO:
 
 """
 Testable Assertions (File Format):
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-extensionelements
-http://dev.w3.org/webfonts/WOFF/spec/#conform-private-last
+http://dev.w3.org/webfonts/WOFF/spec/
 
-http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
+#conform-metadata-extensionelements
+#conform-private-last
+#conform-diroverlap-reject
+
+#conform-maycompress
 I'm not sure how to test for this one. The compression validity is
 checked if the table has been compressed. Maybe that is enough?
 
-http://dev.w3.org/webfonts/WOFF/spec/#conform-sameorder
+#conform-sameorder
 This can't be tested without access the original SNFT data.
 
-http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-encoding
+#conform-metadata-encoding
 This one is going to be complicated. Maybe someone on the list can help.
 """
 
@@ -143,6 +146,7 @@ def testHeaderSignature(data, reporter):
     Tests:
     - The signature must be "wOFF".
       http://dev.w3.org/webfonts/WOFF/spec/#conform-magicnumber
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-nomagicnumber-reject
     """
     header = unpackHeader(data)
     signature = header["signature"]
@@ -158,7 +162,7 @@ def testHeaderFlavor(data, reporter):
     - The flavor should be OTTO, 0x00010000 or true. Warn if another value is found.
     - If the flavor is OTTO, the CFF table must be present.
     - If the flavor is not OTTO, the CFF must not be present.
-    - flavor could not be validated because the directory could not be unpacked.
+    - If the directory cannot be unpacked, the flavor flavor can not be validated. Issue a warning.
     """
     header = unpackHeader(data)
     flavor = header["flavor"]
@@ -179,10 +183,10 @@ def testHeaderFlavor(data, reporter):
 def testHeaderLength(data, reporter):
     """
     Tests:
-    - length of data matches defined length.
-    - length of data is long enough for header and directory for defined number of tables.
-    - length of data is long enough to contain table lengths defined in the directory,
-      metaLength and privLength.
+    - The length of the data must match the defined length.
+    - The length of the data must be long enough for header and directory for defined number of tables.
+    - The length of the data must be long enough to contain the table lengths defined in the directory,
+      the metaLength and the privLength.
     """
     header = unpackHeader(data)
     length = header["length"]
@@ -213,8 +217,9 @@ def testHeaderLength(data, reporter):
 def testHeaderReserved(data, reporter):
     """
     Tests:
-    - reserved is 0
+    - The reserved bit must be set to 0.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-reserved
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-reserved-reject
     """
     header = unpackHeader(data)
     reserved = header["reserved"]
@@ -227,10 +232,11 @@ def testHeaderReserved(data, reporter):
 def testHeaderTotalSFNTSize(data, reporter):
     """
     Tests:
-    - the size must me a multiple of 4.
+    - The size of the unpacked SFNT data must be a multiple of 4.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-totalsize-longword
-    - origLength values in the directory, with proper padding,
-      sum to the totalSfntSize in the header.
+    - The origLength values in the directory, with proper padding, must sum
+      to the totalSfntSize in the header.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-totalsize-longword-reject
     """
     header = unpackHeader(data)
     directory = unpackDirectory(data)
@@ -256,7 +262,7 @@ def testHeaderTotalSFNTSize(data, reporter):
 def testHeaderMajorVersionAndMinorVersion(data, reporter):
     """
     Tests:
-    - major version + minor version > 1.0
+    - The major version + minor version ahould be greater than 1.0.
     """
     header = unpackHeader(data)
     majorVersion = header["majorVersion"]
@@ -284,8 +290,8 @@ directorySize = structCalcSize(directoryFormat)
 def testHeaderNumTables(data, reporter):
     """
     Tests:
-    - numTables in header is at least 1.
-    - the number of tables defined in the header can be successfully unpacked.
+    - The number of tables must be at least 1.
+    - The directory entries for the specified number of tables must be properly formatted.
     """
     header = unpackHeader(data)
     numTables = header["numTables"]
@@ -304,7 +310,8 @@ def testHeaderNumTables(data, reporter):
 def testDirectoryTableOrder(data, reporter):
     """
     Tests:
-    - directory in ascending order based on tag.
+    - The directory entries must be stored in ascending order based on their tag.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-ascending
     """
     storedOrder = [table["tag"] for table in unpackDirectory(data)]
     if storedOrder != sorted(storedOrder):
@@ -315,10 +322,10 @@ def testDirectoryTableOrder(data, reporter):
 def testDirectoryBorders(data, reporter):
     """
     Tests:
-    - table offset is before the end of the header/directory.
-    - table offset is after the end of the file.
-    - table offset + length is greater than the available length.
-    - table length is longer than the available length.
+    - The table offsets must not be before the end of the header/directory.
+    - The table offsets must not be after the end of the file.
+    - The table offset + length must not be greater than the available length.
+    - The table lengths must not longer than the available length.
     """
     header = unpackHeader(data)
     totalLength = header["length"]
@@ -356,7 +363,9 @@ def testDirectoryBorders(data, reporter):
 def testDirectoryCompressedLength(data, reporter):
     """
     Tests:
-    - compLength must be less than or equal to origLength
+    - The compressed length must be less than or equal to the original length.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-compressedlarger
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-uncompressed
     """
     directory = unpackDirectory(data)
     for table in directory:
@@ -371,7 +380,7 @@ def testDirectoryCompressedLength(data, reporter):
 def testDirectoryDecompressedLength(data, reporter):
     """
     Tests:
-    - decompressed length matches origLength
+    - The decompressed length of the data must match the defined original length.
     """
     directory = unpackDirectory(data)
     tableData = unpackTableData(data)
@@ -392,8 +401,8 @@ def testDirectoryDecompressedLength(data, reporter):
 def testDirectoryChecksums(data, reporter):
     """
     Tests:
-    - checksum for table data, decompressed if necessary, matched
-      the checkSum defined in the directory entry.
+    - The checksums for the tables must match the checksums in the directory.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-checksumvalidate
     """
     directory = unpackDirectory(data)
     tables = unpackTableData(data)
@@ -413,7 +422,7 @@ def testDirectoryChecksums(data, reporter):
 def testTableDataStart(data, reporter):
     """
     Tests:
-    - table data starts immediately after the directory.
+    - The table data must start immediately after the directory.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-afterdirectory
     """
     header = unpackHeader(data)
@@ -429,8 +438,9 @@ def testTableDataStart(data, reporter):
 def testTableGaps(data, reporter):
     """
     Tests:
-    - there should be no gaps between tables
+    - There must not be any extraneous data between tables.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-noextraneous
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-extraneous-reject
     """
     directory = unpackDirectory(data)
     prevTable = None
