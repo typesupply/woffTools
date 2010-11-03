@@ -23,19 +23,29 @@ TO DO:
 Testable Assertions (File Format):
 http://dev.w3.org/webfonts/WOFF/spec/
 
-#conform-metadata-extensionelements
 #conform-private-last
 #conform-diroverlap-reject
+#conform-overlap-reject
 
-#conform-maycompress
-I'm not sure how to test for this one. The compression validity is
-checked if the table has been compressed. Maybe that is enough?
+#conform-metadata-extensionelements
+#conform-metadata-extensions-optional
+These contradict another requirement that says that the scheme MUST be followed.
+
+#conform-nameoptional
+Is this pointing to the right thing in the spec?
 
 #conform-sameorder
-This can't be tested without access the original SNFT data.
+#conform-identical
+These can't be tested without access the original SNFT data.
 
 #conform-metadata-encoding
 This one is going to be complicated. Maybe someone on the list can help.
+
+#conform-ascending-recreated
+UA test.
+
+#conform-incorrect-reject
+AT test.
 """
 
 # import
@@ -512,6 +522,7 @@ def testTableDecompression(data, reporter):
     Tests:
     - The table data, when the defined compressed length is less
       than the original length, must be properly compressed.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
       http://dev.w3.org/webfonts/WOFF/spec/#conform-mustuncompress
     """
     shouldStop = False
@@ -592,11 +603,16 @@ def testMetadataOffsetAndLength(data, reporter):
       If the metadata length is zero, the metadata offset must be zero.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
     - The metadata offset must not be before the end of the header/directory.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
     - The metadata offset must not be after the end of the file.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
     - The metadata offset + length must not be greater than the available length.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
     - The metadata length must not be longer than the available length.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
     - The metadata offset must begin immediately after last table.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-afterfonttable
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
     - The metadata offset must begin on 4-byte boundary.
     """
     header = unpackHeader(data)
@@ -740,6 +756,7 @@ def testMetadataStructure(data, reporter):
     """
     Refer to lower level tests.
     http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-schemavalid
+    http://dev.w3.org/webfonts/WOFF/spec/#conform-invalid-mustignore
     """
     if shouldSkipMetadataTest(data, reporter):
         return
@@ -1070,8 +1087,10 @@ def testMetadataExtensionItem(element, reporter):
     - There should be no unknown attributes.
     - There must be at least one name child element.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-namerequired
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-noname-ignore
     - There must be at least one value child element.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-valuerequired
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-novalue-ignore
     - There should be no duplicated languages in the name elements.
     - There should be no duplicated languages in the value elements.
     """
@@ -1297,11 +1316,16 @@ def testPrivateDataOffsetAndLength(data, reporter):
       If the private data length is zero, the private data offset must be zero.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
     - The private data offset must not be before the end of the header/directory.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
     - The private data offset must not be after the end of the file.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
     - The private data offset + length must not be greater than the available length.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
     - The private data length must not be longer than the available length.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
     - The private data offset must begin immediately after last table.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-afterfonttable
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
     - The private data offset must begin on 4-byte boundary.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
       http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padalign
