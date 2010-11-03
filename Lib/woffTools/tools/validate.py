@@ -648,6 +648,8 @@ def testMetadataPadding(data, reporter):
       http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
       http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-noprivatepad
     """
+    if shouldSkipMetadataTest(data, reporter):
+        return
     header = unpackHeader(data)
     offset = header["metaOffset"]
     length = header["metaLength"]
