@@ -510,7 +510,9 @@ def testTablePadding(data, reporter):
 def testTableDecompression(data, reporter):
     """
     Tests:
-    - the data for entries where compLength < origLength can be successfully decompressed.
+    - The table data, when the defined compressed length is less
+      than the original length, must be properly compressed.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-mustuncompress
     """
     shouldStop = False
     for table in unpackDirectory(data):
@@ -532,9 +534,9 @@ def testTableDecompression(data, reporter):
 def testHeadCheckSumAdjustment(data, reporter):
     """
     Tests:
-    - Missing head table.
-    - head table with a structure that can not be parsed.
-    - head checkSumAdjustment that does not match the computed value for the sfnt data.
+    - The SFNT data should contain a head table.
+    - The head table must have the proper structure.
+    - The checkSumAdjustment must be correct.
     """
     tables = unpackTableData(data)
     if "head" not in tables:
@@ -555,7 +557,7 @@ def testHeadCheckSumAdjustment(data, reporter):
 def testDSIG(data, reporter):
     """
     Tests:
-    - warn if DSIG is present
+    - If a DSIG is present, warn that this tool does not validate it.
     """
     directory = unpackDirectory(data)
     for entry in directory:
@@ -574,7 +576,7 @@ def shouldSkipMetadataTest(data, reporter):
     """
     This is used at the start of metadata test functions.
     It writes a note and returns True if not metadata exists.
-    This covers: http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-optional
+    http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-optional
     """
     header = unpackHeader(data)
     metaOffset = header["metaOffset"]
@@ -586,15 +588,16 @@ def shouldSkipMetadataTest(data, reporter):
 def testMetadataOffsetAndLength(data, reporter):
     """
     Tests:
-    - if offset is zero, length is 0. vice-versa.
+    - If the metadata offset is zero, the metadata length must zero.
+      If the metadata length is zero, the metadata offset must be zero.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
-    - offset is before the end of the header/directory.
-    - offset is after the end of the file.
-    - offset + length is greater than the available length.
-    - length is longer than the available length.
-    - offset begins immediately after last table.
+    - The metadata offset must not be before the end of the header/directory.
+    - The metadata offset must not be after the end of the file.
+    - The metadata offset + length must not be greater than the available length.
+    - The metadata length must not be longer than the available length.
+    - The metadata offset must begin immediately after last table.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-afterfonttable
-    - offset begins on 4-byte boundary.
+    - The metadata offset must begin on 4-byte boundary.
     """
     header = unpackHeader(data)
     metaOffset = header["metaOffset"]
@@ -641,7 +644,7 @@ def testMetadataOffsetAndLength(data, reporter):
 
 def testMetadataPadding(data, reporter):
     """
-    - metadata must end on a 4-byte boundary, padded with null bytes as needed
+    - The metadata must end on a 4-byte boundary, padded with null bytes as needed.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
       http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-noprivatepad
     """
@@ -666,12 +669,12 @@ def testMetadataPadding(data, reporter):
 def testMetadataIsCompressed(data, reporter):
     """
     Tests:
-    - metadata is compressed
+    - The metadata must be compressed.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-alwayscompress
 
     XXX: this could theoretically issue an incorrect error. the compressed metadata
     could be longer than the original metadata. maybe this isn't something that should
-    be worried about as that would surely be incorrect metadata.
+    be worried about as that would surely be metadata that is not well formed.
     """
     if shouldSkipMetadataTest(data, reporter):
         return
@@ -686,7 +689,8 @@ def testMetadataIsCompressed(data, reporter):
 def testMetadataDecompression(data, reporter):
     """
     Tests:
-    - metadata can be decompressed with zlib.
+    - Metadata must be compressed with zlib.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-alwayscompress
     """
     if shouldSkipMetadataTest(data, reporter):
         return
@@ -701,7 +705,7 @@ def testMetadataDecompression(data, reporter):
 def testMetadataDecompressedLength(data, reporter):
     """
     Tests:
-    - decompressed metadata length matches metaOrigLength
+    - The length of the decompressed metadata must match the defined original length.
     """
     if shouldSkipMetadataTest(data, reporter):
         return
@@ -717,7 +721,7 @@ def testMetadataDecompressedLength(data, reporter):
 def testMetadataParse(data, reporter):
     """
     Tests:
-    - metadata can be parsed
+    - The metadata must be well-formed.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-wellformed
     """
     if shouldSkipMetadataTest(data, reporter):
@@ -744,12 +748,12 @@ def testMetadataStructure(data, reporter):
 def testMetadataStructureTopElement(tree, reporter):
     """
     Tests:
-    - metadata is top element
+    - The metadata must be the main element.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-metadataelement-required
-    - version is only attribute of top element
+    - The version attribute must be the only attribute of the metadata element.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-metadataversion-required
-    - version is 1.0
-    - text in element
+    - The version must be set to 1.0.
+    - There must not be text in the metadata element.
     """
     haveError = False
     # metadata as top element
@@ -781,9 +785,9 @@ def testMetadataStructureTopElement(tree, reporter):
 def testMetadataChildElements(tree, reporter):
     """
     Tests:
-    - uniqueid is present (warn)
-    - unknown element tags (warn)
-    - known tags are shuttled off to element specific functions
+    - The uniqueid should be present.
+    - There should be no unknown child elements.
+    - There should be no duplictae elements other than the extension element.
     """
     # look for known elements
     testMetadataElementExistence(tree, reporter)
@@ -816,10 +820,9 @@ def testMetadataChildElements(tree, reporter):
 
 def testMetadataElementExistence(tree, reporter):
     """
-    Warn/note missing elements.
-
-    "extension" is not tested since it is even more
-    optional than the other optional elements.
+    The various elements may exist. Note elements that don't exist.
+    The uniqueid element should exist. Warn if it doesn't.
+    Ignore the xtension element if it is missing.
     """
     foundUniqueid = False
     tags = "uniqueid vendor credits description license copyright trademark licensee".split(" ")
@@ -838,9 +841,7 @@ def testMetadataElementExistence(tree, reporter):
 
 def testMetadataDuplicateElements(tree, reporter):
     """
-    Look for duplicated, known element tags.
-
-    "extension" is not tested since it may occur more than once.
+    Elements, other than extension, should not be duplicated.
     """
     tags = "uniqueid vendor credits description license copyright trademark licensee".split(" ")
     tags = dict.fromkeys(tags, 0)
