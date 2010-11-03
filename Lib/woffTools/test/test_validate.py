@@ -1740,6 +1740,24 @@ def metadataAbstractElementRequiredChildElementTest5():
     """
     return ElementTree.fromstring(metadata)
 
+def metadataAbstractElementRequiredChildElementTest6():
+    """
+    Optional child elements, child elements required.
+
+    >>> doctestMetadataAbstractElementFunction(
+    ...     testMetadataAbstractElementKnownChildElements,
+    ...     metadataAbstractElementRequiredChildElementTest6(),
+    ...     requiredChildElements=["foo"],
+    ...     optionalChildElements=["bar"])
+    []
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <test>
+        <foo />
+        <bar />
+    </test>
+    """
+    return ElementTree.fromstring(metadata)
 
 # testMetadataAbstractElementOptionalChildElements
 
