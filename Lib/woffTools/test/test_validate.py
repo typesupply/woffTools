@@ -4,12 +4,11 @@ from copy import deepcopy
 from xml.etree import ElementTree
 from woffTools.tools.validate import structPack, \
     HTMLReporter,\
-    calcPaddingLength, \
     calcChecksum, calcHeadChecksum,\
+    calcPaddingLength, \
     sfntHeaderFormat, sfntHeaderSize, sfntDirectoryEntryFormat, sfntDirectoryEntrySize, \
     shouldSkipMetadataTest,\
     testDirectoryBorders,\
-    testTableGaps, \
     testDirectoryChecksums,\
     testDirectoryCompressedLength,\
     testDirectoryDecompressedLength,\
@@ -27,13 +26,13 @@ from woffTools.tools.validate import structPack, \
     testMetadataAbstractElementEmptyValue,\
     testMetadataAbstractElementIllegalChildElements,\
     testMetadataAbstractElementIllegalText,\
+    testMetadataAbstractElementKnownChildElements,\
     testMetadataAbstractElementOptionalAttributes,\
     testMetadataAbstractElementRequiredAttributes,\
-    testMetadataAbstractElementKnownChildElements,\
     testMetadataAbstractElementRequiredText,\
     testMetadataAbstractElementUnknownAttributes,\
-    testMetadataAbstractTextElements,\
     testMetadataAbstractTextElementLanguages,\
+    testMetadataAbstractTextElements,\
     testMetadataChildElements,\
     testMetadataCopyright,\
     testMetadataCredit,\
@@ -43,11 +42,12 @@ from woffTools.tools.validate import structPack, \
     testMetadataDescription,\
     testMetadataDuplicateElements,\
     testMetadataElementExistence,\
+    testMetadataExtension,\
+    testMetadataIsCompressed,\
     testMetadataLicense,\
     testMetadataLicensee,\
     testMetadataOffsetAndLength,\
     testMetadataPadding,\
-    testMetadataIsCompressed,\
     testMetadataParse,\
     testMetadataStructureTopElement,\
     testMetadataTrademark,\
@@ -57,6 +57,7 @@ from woffTools.tools.validate import structPack, \
     testPrivateDataPadding,\
     testTableDataStart,\
     testTableDecompression,\
+    testTableGaps, \
     testTablePadding,\
     headerFormat, headerSize,\
     directoryFormat, directorySize
@@ -84,7 +85,7 @@ def doctestFunction2(func, data):
 def doctestMetadataAbstractElementFunction(func, element,
     requiredAttributes=None, optionalAttributes=None,
     requireText=None,
-    knownChildElements=None, missingChildElementsAlertLevel=None,
+    requiredChildElements=None, missingChildElementsAlertLevel=None,
     noteMissingOptionalAttributes=None):
     reporter = HTMLReporter()
     reporter.logTestTitle("doctest")
@@ -93,8 +94,8 @@ def doctestMetadataAbstractElementFunction(func, element,
         kwargs["requiredAttributes"] = requiredAttributes
     if optionalAttributes is not None:
         kwargs["optionalAttributes"] = optionalAttributes
-    if knownChildElements:
-        kwargs["knownChildElements"] = knownChildElements
+    if requiredChildElements:
+        kwargs["requiredChildElements"] = requiredChildElements
     if missingChildElementsAlertLevel:
         kwargs["missingChildElementsAlertLevel"] = missingChildElementsAlertLevel
     if noteMissingOptionalAttributes is not None:
@@ -1658,7 +1659,7 @@ def metadataAbstractElementRequiredChildElementTest1():
     >>> doctestMetadataAbstractElementFunction(
     ...     testMetadataAbstractElementKnownChildElements,
     ...     metadataAbstractElementRequiredChildElementTest1(),
-    ...     knownChildElements=["foo"])
+    ...     requiredChildElements=["foo"])
     ['ERROR']
     """
     metadata = """<?xml version="1.0" encoding="UTF-8"?>
@@ -1674,7 +1675,7 @@ def metadataAbstractElementRequiredChildElementTest2():
     >>> doctestMetadataAbstractElementFunction(
     ...     testMetadataAbstractElementKnownChildElements,
     ...     metadataAbstractElementRequiredChildElementTest2(),
-    ...     knownChildElements=["foo"], missingChildElementsAlertLevel="warning")
+    ...     requiredChildElements=["foo"], missingChildElementsAlertLevel="warning")
     ['WARNING']
     """
     metadata = """<?xml version="1.0" encoding="UTF-8"?>
@@ -1690,7 +1691,7 @@ def metadataAbstractElementRequiredChildElementTest3():
     >>> doctestMetadataAbstractElementFunction(
     ...     testMetadataAbstractElementKnownChildElements,
     ...     metadataAbstractElementRequiredChildElementTest3(),
-    ...     knownChildElements=["foo"])
+    ...     requiredChildElements=["foo"])
     []
     """
     metadata = """<?xml version="1.0" encoding="UTF-8"?>
@@ -1707,7 +1708,7 @@ def metadataAbstractElementRequiredChildElementTest4():
     >>> doctestMetadataAbstractElementFunction(
     ...     testMetadataAbstractElementKnownChildElements,
     ...     metadataAbstractElementRequiredChildElementTest4(),
-    ...     knownChildElements=["foo"])
+    ...     requiredChildElements=["foo"])
     ['WARNING']
     """
     metadata = """<?xml version="1.0" encoding="UTF-8"?>
@@ -1725,7 +1726,7 @@ def metadataAbstractElementRequiredChildElementTest5():
     >>> doctestMetadataAbstractElementFunction(
     ...     testMetadataAbstractElementKnownChildElements,
     ...     metadataAbstractElementRequiredChildElementTest5(),
-    ...     knownChildElements=["foo"])
+    ...     requiredChildElements=["foo"])
     ['WARNING', 'ERROR']
     """
     metadata = """<?xml version="1.0" encoding="UTF-8"?>
@@ -2165,6 +2166,172 @@ def metadataLicenseeTest1():
     """
     return ElementTree.fromstring(metadata)
 
+# testMetadataExtension
+
+def metadataExtensionTest1():
+    """
+    Valid.
+
+    >>> doctestFunction1(testMetadataExtension, metadataExtensionTest1())
+    (None, 'PASS')
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <extension>
+        <name>Extension Name</name>
+        <item>
+            <name>Foo Item Name</name>
+            <value>Foo Item Value</value>
+        </item>
+    </extension>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataExtensionTest2():
+    """
+    Valid. No name.
+
+    >>> doctestFunction1(testMetadataExtension, metadataExtensionTest2())
+    (None, 'PASS')
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <extension>
+        <item>
+            <name>Foo Item Name</name>
+            <value>Foo Item Value</value>
+        </item>
+    </extension>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataExtensionTest3():
+    """
+    Invalid. No item.
+
+    >>> doctestFunction1(testMetadataExtension, metadataExtensionTest3())
+    (None, 'ERROR')
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <extension>
+        <name>Extension Name</name>
+    </extension>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataExtensionTest4():
+    """
+    Invalid. No name in item.
+
+    >>> doctestFunction1(testMetadataExtension, metadataExtensionTest4())
+    (None, 'ERROR')
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <extension>
+        <name>Extension Name</name>
+        <item>
+            <value>Foo Item Value</value>
+        </item>
+    </extension>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataExtensionTest5():
+    """
+    Invalid. No value in item.
+
+    >>> doctestFunction1(testMetadataExtension, metadataExtensionTest5())
+    (None, 'ERROR')
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <extension>
+        <name>Extension Name</name>
+        <item>
+            <value>Foo Item Value</value>
+        </item>
+    </extension>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataExtensionTest6():
+    """
+    Valid. More than one name.
+
+    >>> doctestFunction1(testMetadataExtension, metadataExtensionTest6())
+    (None, 'PASS')
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <extension>
+        <name>Extension Name</name>
+        <name lang="en">Extension Name</name>
+        <name lang="ko">Extension Name</name>
+        <item>
+            <name>Foo Item Name</name>
+            <value>Foo Item Value</value>
+        </item>
+    </extension>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataExtensionTest7():
+    """
+    Valid. More than one item.
+
+    >>> doctestFunction1(testMetadataExtension, metadataExtensionTest7())
+    (None, 'PASS')
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <extension>
+        <name>Extension Name</name>
+        <item>
+            <name>Foo Item Name</name>
+            <value>Foo Item Value</value>
+        </item>
+        <item>
+            <name>Bar Item Name</name>
+            <value>Bar Item Value</value>
+        </item>
+    </extension>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataExtensionTest8():
+    """
+    Valid. More than one name in item.
+
+    >>> doctestFunction1(testMetadataExtension, metadataExtensionTest8())
+    (None, 'PASS')
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <extension>
+        <name>Extension Name</name>
+        <item>
+            <name>Foo Item Name</name>
+            <name lang="en">Foo Item Name</name>
+            <name lang="ko">Foo Item Name</name>
+            <value>Foo Item Value</value>
+        </item>
+    </extension>
+    """
+    return ElementTree.fromstring(metadata)
+
+def metadataExtensionTest9():
+    """
+    Valid. More than one value in item.
+
+    >>> doctestFunction1(testMetadataExtension, metadataExtensionTest9())
+    (None, 'PASS')
+    """
+    metadata = """<?xml version="1.0" encoding="UTF-8"?>
+    <extension>
+        <name>Extension Name</name>
+        <item>
+            <name>Foo Item Name</name>
+            <value>Foo Item Value</value>
+            <value lang="en">Foo Item Value</value>
+            <value lang="ko">Foo Item Value</value>
+        </item>
+    </extension>
+    """
+    return ElementTree.fromstring(metadata)
 
 # testPrivateDataOffsetAndLength
 

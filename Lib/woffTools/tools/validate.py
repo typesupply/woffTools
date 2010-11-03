@@ -15,7 +15,6 @@ TO DO:
 - test for proper ordering of table data, metadata, private data
 - test metadata extension element
 - test for overlapping tables
-- review spec testable assertions and make sure they are all covered here
 - check conformance levels of all tests
 - for padding checks, compare the stored padding to \0, don't just
   test the edge for a remainder.
@@ -771,8 +770,6 @@ def testMetadataChildElements(tree, reporter):
     # look for duplicate elements
     testMetadataDuplicateElements(tree, reporter)
     # push elements to the appropriate functions
-    optionalElements = "vendor credits description license copyright trademark licensee".split(" ")
-    optionalElements = dict.fromkeys(optionalElements, 0)
     for element in tree:
         if element.tag == "uniqueid":
             testMetadataUniqueid(element, reporter)
@@ -790,6 +787,8 @@ def testMetadataChildElements(tree, reporter):
             testMetadataTrademark(element, reporter)
         elif element.tag == "licensee":
             testMetadataLicensee(element, reporter)
+        elif element.tag == "extension":
+            testMetadataExtension(element, reporter)
         else:
             reporter.logWarning(
                 message="Unknown \"%s\" element." % element.tag,
@@ -798,6 +797,9 @@ def testMetadataChildElements(tree, reporter):
 def testMetadataElementExistence(tree, reporter):
     """
     Warn/note missing elements.
+
+    "extension" is not tested since it is even more
+    optional than the other optional elements.
     """
     foundUniqueid = False
     tags = "uniqueid vendor credits description license copyright trademark licensee".split(" ")
@@ -817,6 +819,8 @@ def testMetadataElementExistence(tree, reporter):
 def testMetadataDuplicateElements(tree, reporter):
     """
     Look for duplicated, known element tags.
+
+    "extension" is not tested since it may occur more than once.
     """
     tags = "uniqueid vendor credits description license copyright trademark licensee".split(" ")
     tags = dict.fromkeys(tags, 0)
@@ -864,7 +868,7 @@ def testMetadataCredits(element, reporter):
     - unknown child elements
     """
     haveError = True
-    if testMetadataAbstractElement(element, reporter, tag="vendor", knownChildElements=["credit"]):
+    if testMetadataAbstractElement(element, reporter, tag="vendor", requiredChildElements="credit".split(" ")):
         haveError = True
     if not haveError:
         reporter.logPass(message="The \"credits\" element is properly formatted.")
@@ -902,7 +906,7 @@ def testMetadataDescription(element, reporter):
     - duplicate languages
     """
     haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="description", knownChildElements=["text"], missingChildElementsAlertLevel="warning"):
+    if testMetadataAbstractElement(element, reporter, tag="description", requiredChildElements="text".split(" "), missingChildElementsAlertLevel="warning"):
         haveError = True
     # validate the text elements
     if testMetadataAbstractTextElements(element, reporter, "description"):
@@ -927,7 +931,7 @@ def testMetadataLicense(element, reporter):
     """
     optional = "url id".split(" ")
     haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="license", optionalAttributes=optional, knownChildElements=["text"], missingChildElementsAlertLevel="warning"):
+    if testMetadataAbstractElement(element, reporter, tag="license", optionalAttributes=optional, requiredChildElements="text".split(" "), missingChildElementsAlertLevel="warning"):
         haveError = True
     # validate the text elements
     if testMetadataAbstractTextElements(element, reporter, "license"):
@@ -950,7 +954,7 @@ def testMetadataCopyright(element, reporter):
     - duplicate languages
     """
     haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="copyright", knownChildElements=["text"], missingChildElementsAlertLevel="warning"):
+    if testMetadataAbstractElement(element, reporter, tag="copyright", requiredChildElements="text".split(" "), missingChildElementsAlertLevel="warning"):
         haveError = True
     # validate the text elements
     if testMetadataAbstractTextElements(element, reporter, "copyright"):
@@ -973,7 +977,7 @@ def testMetadataTrademark(element, reporter):
     - duplicate languages
     """
     haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="trademark", knownChildElements=["text"], missingChildElementsAlertLevel="warning"):
+    if testMetadataAbstractElement(element, reporter, tag="trademark", requiredChildElements="text".split(" "), missingChildElementsAlertLevel="warning"):
         haveError = True
     # validate the text elements
     if testMetadataAbstractTextElements(element, reporter, "trademark"):
@@ -999,11 +1003,64 @@ def testMetadataLicensee(element, reporter):
     if not haveError:
         reporter.logPass(message="The \"licensee\" element is properly formatted.")
 
+def testMetadataExtension(element, reporter):
+    """
+    Tests:
+    - id attribute (optional)
+    - optional name sub element(s)
+    - has at least one item child element
+    - unknown child elements
+    """
+    haveError = False
+    if testMetadataAbstractElement(element, reporter, tag="extension", optionalAttributes=["id"], requiredChildElements=["item"], optionalChildElements=["name"], noteMissingOptionalAttributes=False):
+        haveError = True
+    # test name elements
+    for child in element:
+        if child.tag == "name":
+            if testMetadataExtensionName(child, reporter):
+                haveError = True
+    # test item elements
+    for child in element:
+        if child.tag == "item":
+            if testMetadataExtensionItem(child, reporter):
+                haveError = True
+
+def testMetadataExtensionName(element, reporter):
+    haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
+    return haveError
+
+def testMetadataExtensionItem(element, reporter):
+    haveError = False
+    if testMetadataAbstractElement(element, reporter, tag="extension", optionalAttributes=["id"], requiredChildElements=["name", "value"], noteMissingOptionalAttributes=False):
+        haveError = True
+    # test name elements
+    for child in element:
+        if child.tag == "name":
+            if testMetadataExtensionItemName(child, reporter):
+                haveError = True
+    # test value elements
+    for child in element:
+        if child.tag == "value":
+            if testMetadataExtensionItemValue(child, reporter):
+                haveError = True
+    if not haveError:
+        reporter.logPass(message="The \"extension\" element is properly formatted.")
+    return haveError
+
+def testMetadataExtensionItemName(element, reporter):
+    haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
+    return haveError
+
+def testMetadataExtensionItemValue(element, reporter):
+    haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
+    return haveError
+
 # support
 
 def testMetadataAbstractElement(element, reporter, tag,
     requiredAttributes=[], optionalAttributes=[], noteMissingOptionalAttributes=True,
-    knownChildElements=[], missingChildElementsAlertLevel="error", requireText=False):
+    requiredChildElements=[], optionalChildElements=[], noteMissingOptionalChildElements=True,
+    missingChildElementsAlertLevel="error", requireText=False):
     haveError = False
     # missing required attribute
     if testMetadataAbstractElementRequiredAttributes(element, reporter, tag, requiredAttributes):
@@ -1023,13 +1080,16 @@ def testMetadataAbstractElement(element, reporter, tag,
     else:
         if testMetadataAbstractElementIllegalText(element, reporter, tag):
             haveError = True
-    # child elements
-    if knownChildElements:
-        if testMetadataAbstractElementKnownChildElements(element, reporter, tag, knownChildElements, missingChildElementsAlertLevel):
+    # required child elements
+    if requiredChildElements:
+        if testMetadataAbstractElementKnownChildElements(element, reporter, tag, requiredChildElements, optionalChildElements, missingChildElementsAlertLevel):
             haveError = True
     else:
-        if testMetadataAbstractElementIllegalChildElements(element, reporter, tag):
+        if testMetadataAbstractElementIllegalChildElements(element, reporter, tag, optionalChildElements):
             haveError = True
+    # optional child elements
+    if optionalChildElements:
+        testMetadataAbstractElementOptionalChildElements(element, reporter, tag, optionalChildElements, noteMissingOptionalChildElements)
     return haveError
 
 def testMetadataAbstractElementRequiredAttributes(element, reporter, tag, requiredAttributes):
@@ -1083,17 +1143,19 @@ def testMetadataAbstractElementIllegalText(element, reporter, tag):
         haveError = True
     return haveError
 
-def testMetadataAbstractElementKnownChildElements(element, reporter, tag, knownChildElements, missingChildElementsAlertLevel="error"):
+def testMetadataAbstractElementKnownChildElements(element, reporter, tag, requiredChildElements, optionalChildElements=[], missingChildElementsAlertLevel="error"):
     foundTags = set()
     for child in element:
-        if child.tag in knownChildElements:
+        if child.tag in requiredChildElements:
             foundTags.add(child.tag)
+        elif child.tag in optionalChildElements:
+            continue
         else:
             reporter.logWarning(
                 message="Unknown \"%s\" child element in \"%s\" element." % (child.tag, tag),
                 information="This element will be unknown to user agents.")
     haveError = False
-    for childTag in sorted(knownChildElements):
+    for childTag in sorted(requiredChildElements):
         if childTag not in foundTags:
             if missingChildElementsAlertLevel == "error":
                 reporter.logError(message="Child element \"%s\" is not defined in the \"%s\" element." % (childTag, tag))
@@ -1106,12 +1168,25 @@ def testMetadataAbstractElementKnownChildElements(element, reporter, tag, knownC
             haveError = True
     return haveError
 
-def testMetadataAbstractElementIllegalChildElements(element, reporter, tag):
+def testMetadataAbstractElementIllegalChildElements(element, reporter, tag, optionalChildElements=[]):
     haveError = False
     if len(element):
+        for child in element:
+            if child.tag not in optionalChildElements:
+                haveError = True
+                break
+    if haveError:
         reporter.logError("Child elements defined in \"%s\" element." % tag)
-        haveError = True
     return haveError
+
+def testMetadataAbstractElementOptionalChildElements(element, reporter, tag, optionalChildElements, noteMissingChildElements=True):
+    foundTags = set()
+    for child in element:
+        if child.tag in optionalChildElements:
+            foundTags.add(child.tag)
+    for childTag in sorted(optionalChildElements):
+        if childTag not in foundTags and noteMissingChildElements:
+            reporter.logNote(message="Optional child element \"%s\" is not defined in the \"%s\" element." % (childTag, tag))
 
 def testMetadataAbstractTextElements(element, reporter, tag):
     """
