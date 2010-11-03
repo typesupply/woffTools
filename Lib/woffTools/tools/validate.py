@@ -460,11 +460,10 @@ def testTableGaps(data, reporter):
 def testTablePadding(data, reporter):
     """
     Tests:
-    - table offsets are on four byte boundaries
+    - The data for each table must begin on a four byte boundary.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-tablesize-longword
-    - final table ends on a four byte boundary.
-        - if metadata or private data is present, use first offset.
-        - if no metadata or pivate data is present, use end of file.
+    - All tables, including the final table, must be padded to a
+      four byte boundary using null bytes as needed.
       http://dev.w3.org/webfonts/WOFF/spec/#conform-tablesize-longword
     """
     header = unpackHeader(data)
@@ -493,6 +492,20 @@ def testTablePadding(data, reporter):
         reporter.logError(message="The sfnt data does not end with proper padding.")
     else:
         reporter.logPass(message="The sfnt data ends with proper padding.")
+    # test the bytes used for padding
+    for table in directory:
+        tag = table["tag"]
+        offset = table["offset"]
+        length = table["compLength"]
+        paddingLength = calcPaddingLength(length)
+        if paddingLength:
+            paddingOffset = offset + length
+            padding = data[paddingOffset:paddingOffset+paddingLength]
+            expectedPadding = "\0" * paddingLength
+            if padding != expectedPadding:
+                reporter.logError(message="The \"%s\" table is not padded with null bytes." % tag)
+            else:
+                reporter.logPass(message="The \"%s\" table is padded with null bytes." % tag)
 
 def testTableDecompression(data, reporter):
     """

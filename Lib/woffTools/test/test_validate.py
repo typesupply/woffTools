@@ -902,6 +902,45 @@ def paddingTest8():
     header["privOffset"] = header["length"]
     return packTestHeader(header)
 
+def paddingTest9():
+    """
+    Tables properly padded with null bytes.
+
+    >>> doctestFunction1(testTablePadding, paddingTest9())
+    (None, 'PASS')
+    """
+    header, directory = defaultTestData(header=True, directory=True)
+    offset = header["length"]
+    header["length"] += 12
+    data = ("\1" * 3) + "\0"
+    tableData = {}
+    for entry in directory:
+        tag = entry["tag"]
+        entry["offset"] = offset
+        entry["compLength"] = 3
+        offset += 4
+        tableData[tag] = (data, data)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData)
+
+def paddingTest10():
+    """
+    Tables not properly padded with null bytes.
+
+    >>> doctestFunction1(testTablePadding, paddingTest10())
+    (None, 'ERROR')
+    """
+    header, directory = defaultTestData(header=True, directory=True)
+    offset = header["length"]
+    header["length"] += 12
+    data = "\1" * 4
+    tableData = {}
+    for entry in directory:
+        tag = entry["tag"]
+        entry["offset"] = offset
+        entry["compLength"] = 3
+        offset += 4
+        tableData[tag] = (data, data)
+    return packTestHeader(header) + packTestDirectory(directory) + packTestTableData(directory, tableData)
 
 # testTableDecompression
 
