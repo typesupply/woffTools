@@ -1756,10 +1756,6 @@ h2.readError {
 	margin: 20px 15px 20px 15px;
 	padding: 10px;
 	border-radius: 5px;
-	-webkit-border-radius: 5px;
-	-moz-border-radius: 5px;
-	-webkit-box-shadow: #999 0 2px 5px;
-	-moz-box-shadow: #999 0 2px 5px;
 	font-size: 25px;
 }
 
@@ -1770,10 +1766,6 @@ h2.readError {
 	margin: 0px 0px 15px 0px;
 	padding: 15px;
 	border-radius: 5px;
-	-webkit-border-radius: 5px;
-	-moz-border-radius: 5px;
-	-webkit-box-shadow: rgba(0, 0, 0, .3) 0 2px 5px;
-	-moz-box-shadow: rgba(0, 0, 0, .3) 0 2px 5px;
 }
 
 h3.infoBlockTitle {
