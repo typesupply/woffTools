@@ -381,7 +381,7 @@ def testDirectoryCompressedLength(data, reporter):
         compLength = table["compLength"]
         origLength = table["origLength"]
         if compLength > origLength:
-            reporter.logError(message="The \"%s\" table directory entry has an compressed length (%d) lager than the original length (%d)." % (tag, compLength, origLength))
+            reporter.logError(message="The \"%s\" table directory entry has an compressed length (%d) larger than the original length (%d)." % (tag, compLength, origLength))
         else:
             reporter.logPass(message="The \"%s\" table directory entry has proper compLength and origLength values." % tag)
 
@@ -2196,6 +2196,7 @@ def validateFont(path, options, writeFile=True):
     # get the report
     report = reporter.getReport()
     # write
+    reportPath = None
     if writeFile:
         # make the output file name
         if options.outputFileName is not None:
