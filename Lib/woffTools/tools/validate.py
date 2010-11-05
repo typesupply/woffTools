@@ -453,9 +453,9 @@ def testTableGaps(data, reporter):
     directory = unpackDirectory(data)
     prevTable = None
     prevTableEnd = None
-    for table in directory:
+    directory = [(table["offset"], table) for table in directory]
+    for offset, table in sorted(directory):
         tag = table["tag"]
-        offset = table["offset"]
         compLength = table["compLength"]
         if prevTableEnd is not None:
             if prevTableEnd != offset:
