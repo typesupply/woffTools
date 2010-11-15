@@ -15,6 +15,7 @@ TO DO:
 - merge metadata and table info from woff-info
 - split length and offset tests into smaller functions that can be more easily doctested
 - split testDirectoryBorders into smaller functions
+- be more resilient against zlib decompression failures
 """
 
 """
