@@ -1359,8 +1359,8 @@ def testPrivateDataOffsetAndLength(data, reporter):
     if minOffset % 4:
         minOffset += 4 - (minOffset % 4)
     maxLength = totalLength - minOffset
-    offsetErrorMessage = "The metadata has an invalid offset (%d)." % privOffset
-    lengthErrorMessage = "The metadata has an invalid length (%d)." % privLength
+    offsetErrorMessage = "The private data has an invalid offset (%d)." % privOffset
+    lengthErrorMessage = "The private data has an invalid length (%d)." % privLength
     if privOffset < minOffset:
         reporter.logError(message=offsetErrorMessage)
     elif privOffset > totalLength:
