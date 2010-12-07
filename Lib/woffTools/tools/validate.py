@@ -382,7 +382,7 @@ def testDirectoryCompressedLength(data, reporter):
         compLength = table["compLength"]
         origLength = table["origLength"]
         if compLength > origLength:
-            reporter.logError(message="The \"%s\" table directory entry has an compressed length (%d) larger than the original length (%d)." % (tag, compLength, origLength))
+            reporter.logError(message="The \"%s\" table directory entry has a compressed length (%d) larger than the original length (%d)." % (tag, compLength, origLength))
         else:
             reporter.logPass(message="The \"%s\" table directory entry has proper compLength and origLength values." % tag)
 
