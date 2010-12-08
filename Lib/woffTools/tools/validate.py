@@ -908,7 +908,7 @@ def testMetadataCredits(element, reporter):
     - There should be no text.
     """
     haveError = True
-    if testMetadataAbstractElement(element, reporter, tag="vendor", requiredChildElements=["credit"]):
+    if testMetadataAbstractElement(element, reporter, tag="credits", requiredChildElements=["credit"]):
         haveError = True
     if not haveError:
         reporter.logPass(message="The \"credits\" element is properly formatted.")
