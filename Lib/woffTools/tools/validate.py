@@ -1039,7 +1039,7 @@ def testMetadataLicensee(element, reporter):
     - There should be no text.
     """
     required = "name".split(" ")
-    haveError = testMetadataAbstractElement(element, reporter, tag="vendor", requiredAttributes=required)
+    haveError = testMetadataAbstractElement(element, reporter, tag="licensee", requiredAttributes=required)
     if not haveError:
         reporter.logPass(message="The \"licensee\" element is properly formatted.")
 
