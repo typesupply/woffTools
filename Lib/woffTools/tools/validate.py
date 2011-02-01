@@ -555,8 +555,7 @@ def testHeadCheckSumAdjustment(data, reporter):
     newChecksum = calcHeadChecksum(data)
     data = tables["head"]
     try:
-        format = ">l"
-        checksum = struct.unpack(format, data[8:12])[0]
+        checksum = struct.unpack(">L", data[8:12])[0]
         if checksum != newChecksum:
             reporter.logError(message="The \"head\" table checkSumAdjustment (%s) does not match the calculated checkSumAdjustment (%s)." % (hex(checksum), hex(newChecksum)))
         else:
@@ -1457,10 +1456,6 @@ def calcHeadChecksum(data):
     directory = unpackDirectory(data)
     tables = unpackTableData(data)
     numTables = header["numTables"]
-    # sort tables
-    sorter = []
-    for entry in directory:
-        sorter.append((entry["offset"], entry, tables[entry["tag"]]))
     # build the sfnt directory
     searchRange, entrySelector, rangeShift = getSearchRange(numTables)
     sfntHeaderData = dict(
@@ -1473,16 +1468,14 @@ def calcHeadChecksum(data):
     sfntData = structPack(sfntHeaderFormat, sfntHeaderData)
     sfntEntries = {}
     offset = sfntHeaderSize + (sfntDirectoryEntrySize * numTables)
-    for index, entry, data in sorted(sorter):
-        if entry["tag"] == "head":
-            checksum = calcChecksum("head", data)
-        else:
-            checksum = entry["origChecksum"]
+    directory = [(entry["offset"], entry) for entry in directory]
+    for o, entry in sorted(directory):
+        checksum = entry["origChecksum"]
         tag = entry["tag"]
         length = entry["origLength"]
         sfntEntries[tag] = dict(
             tag=tag,
-            checkSum=entry["origChecksum"],
+            checkSum=checksum,
             offset=offset,
             length=length
         )
@@ -1490,13 +1483,10 @@ def calcHeadChecksum(data):
     for tag, sfntEntry in sorted(sfntEntries.items()):
         sfntData += structPack(sfntDirectoryEntryFormat, sfntEntry)
     # calculate
-    tags = sfntEntries.keys()
     checkSums = [entry["checkSum"] for entry in sfntEntries.values()]
-    directoryEnd = sfntHeaderSize + (len(tags) * sfntDirectoryEntrySize)
-    assert directoryEnd == len(sfntData)
-    checkSums.append(calcChecksum(None, sfntData))
+    checkSums.append(sumDataULongs(sfntData))
     checkSum = sum(checkSums)
-    checkSum = 0xB1B0AFBA - checkSum
+    checkSum = (0xB1B0AFBA - checkSum) & 0xffffffff
     return checkSum
 
 # ------------------
