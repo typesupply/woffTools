@@ -734,7 +734,7 @@ def checkSFNTConformance(file):
     # is very wrong and this should come to a screeching halt.
     if errors:
         return errors
-    # lod the table data
+    # load the table data
     for entry in tableDirectory:
         offset = entry["offset"]
         length = entry["length"]
@@ -829,11 +829,13 @@ def _testPadding(tableDirectory):
     False
     """
     errors = []
-    prevTable = None
-    for entry in tableDirectory:
+    # make the entries sortable
+    entries = [(entry["offset"], entry) for entry in tableDirectory]
+    prevTable = "end of table directory"
+    for o, entry in sorted(entries):
         offset = entry["offset"]
         if offset % 4:
-            errors.append("The %s table is not properly padded." % prevTable)
+            errors.append("Improper padding between %s and %s." % (prevTable, entry["tag"]))
         prevTable = entry["tag"]
     return errors
 
