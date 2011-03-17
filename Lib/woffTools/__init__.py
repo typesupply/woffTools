@@ -688,19 +688,24 @@ def checkSFNTConformance(file):
     This function checks a SFNT file to see if it meets
     the conformance recomendations in the WOFF specification.
     This includes:
+    - searchRange must be correct.
+    - entrySelector must be correct.
+    - rangeShift must be correct.
     - offset to each table must be after the table directory
       and before the end of the file.
     - offset + length of each table must not extend past
       the end of the file.
+    - the table directory must be in ascending order.
     - tables must be padded to 4 byte boundaries.
     - the final table must be padded to a 4 byte boundary.
     - the gaps between table data blocks must not be more
       than necessary to pad the table to a 4 byte boundary.
-    - there gap between the end of the final table and
+    - the gap between the end of the final table and
       the end of the file must not be more than necessary
       to pad the table to a four byte boundary.
     - the checksums for each table in the table directory
       must be correct.
+    - the padding bytes must be null.
 
     The returned value of this function will be a list.
     If any errors were found, they will be represented
@@ -728,46 +733,54 @@ def checkSFNTConformance(file):
         tableDirectory.append(entry)
         directoryData = directoryData[sfntDirectoryEntrySize:]
     # sanity testing
-    errors += _testOffsetValidity(len(data), tableDirectory)
-    errors += _testLengthValidity(len(data), tableDirectory)
+    errors += _testOffsetBoundaryValidity(len(data), tableDirectory)
+    errors += _testLengthBoundaryValidity(len(data), tableDirectory)
     # if one or more errors have already been found, something
     # is very wrong and this should come to a screeching halt.
     if errors:
         return errors
+    # junk at the beginning of the file
+    errors += _testJunkAtTheBeginningOfTheFile(header)
+    # test directory order
+    errors += _testDirectoryOrder(tableDirectory)
     # load the table data
     for entry in tableDirectory:
         offset = entry["offset"]
         length = entry["length"]
         entry["data"] = data[offset:offset+length]
+    # test for overlaps
+    errors += _testOverlaps(tableDirectory)
     # test for padding
-    errors += _testPadding(tableDirectory)
+    errors += _testOffsets(tableDirectory)
     # test the final table padding
     errors += _testFinalTablePadding(len(data), numTables, tableDirectory[-1]["tag"])
     # test for gaps
     errors += _testGaps(tableDirectory)
     # test for a gap at the end of the file
     errors += _testGapAfterFinalTable(len(data), tableDirectory)
+    # test padding value
+    errors += _testPaddingValue(tableDirectory, data)
     # validate checksums
     errors += _testCheckSums(tableDirectory)
     # done.
     return errors
 
-def _testOffsetValidity(dataLength, tableDirectory):
+def _testOffsetBoundaryValidity(dataLength, tableDirectory):
     """
     >>> test = [
     ...     dict(tag="test", offset=44)
     ... ]
-    >>> bool(_testOffsetValidity(45, test))
+    >>> bool(_testOffsetBoundaryValidity(45, test))
     False
     >>> test = [
     ...     dict(tag="test", offset=1)
     ... ]
-    >>> bool(_testOffsetValidity(45, test))
+    >>> bool(_testOffsetBoundaryValidity(45, test))
     True
     >>> test = [
     ...     dict(tag="test", offset=46)
     ... ]
-    >>> bool(_testOffsetValidity(45, test))
+    >>> bool(_testOffsetBoundaryValidity(45, test))
     True
     """
     errors = []
@@ -782,21 +795,22 @@ def _testOffsetValidity(dataLength, tableDirectory):
             errors.append("The offset to the %s table is not valid." % tag)
     return errors
 
-def _testLengthValidity(dataLength, tableDirectory):
+def _testLengthBoundaryValidity(dataLength, tableDirectory):
     """
     >>> test = [
     ...     dict(tag="test", offset=44, length=1)
     ... ]
-    >>> bool(_testLengthValidity(45, test))
+    >>> bool(_testLengthBoundaryValidity(45, test))
     False
     >>> test = [
     ...     dict(tag="test", offset=44, length=2)
     ... ]
-    >>> bool(_testLengthValidity(45, test))
+    >>> bool(_testLengthBoundaryValidity(45, test))
     True
     """
     errors = []
-    for entry in tableDirectory:
+    entries = [(entry["offset"], entry) for entry in tableDirectory]
+    for o, entry in sorted(entries):
         offset = entry["offset"]
         length = entry["length"]
         tag = entry["tag"]
@@ -805,38 +819,136 @@ def _testLengthValidity(dataLength, tableDirectory):
             errors.append("The length of the %s table is not valid." % tag)
     return errors
 
-def _testPadding(tableDirectory):
+def _testJunkAtTheBeginningOfTheFile(header):
+    """
+    >>> test = dict(numTables=5, searchRange=64, entrySelector=2, rangeShift=16)
+    >>> bool(_testJunkAtTheBeginningOfTheFile(test))
+    False
+    >>> test = dict(numTables=5, searchRange=0, entrySelector=2, rangeShift=16)
+    >>> bool(_testJunkAtTheBeginningOfTheFile(test))
+    True
+    >>> test = dict(numTables=5, searchRange=64, entrySelector=0, rangeShift=16)
+    >>> bool(_testJunkAtTheBeginningOfTheFile(test))
+    True
+    >>> test = dict(numTables=5, searchRange=64, entrySelector=2, rangeShift=0)
+    >>> bool(_testJunkAtTheBeginningOfTheFile(test))
+    True
+    """
+    errors = []
+    numTables = header["numTables"]
+    searchRange, entrySelector, rangeShift = getSearchRange(numTables)
+    if header["searchRange"] != searchRange:
+        errors.append("The searchRange value is incorrect.")
+    if header["entrySelector"] != entrySelector:
+        errors.append("The entrySelector value is incorrect.")
+    if header["rangeShift"] != rangeShift:
+        errors.append("The rangeShift value is incorrect.")
+    return errors
+
+def _testDirectoryOrder(tableDirectory):
+    """
+    >>> test = [
+    ...     dict(tag="aaaa"),
+    ...     dict(tag="bbbb")
+    ... ]
+    >>> bool(_testDirectoryOrder(test))
+    False
+    >>> test = [
+    ...     dict(tag="bbbb"),
+    ...     dict(tag="aaaa")
+    ... ]
+    >>> bool(_testDirectoryOrder(test))
+    True
+    """
+    order = [entry["tag"] for entry in tableDirectory]
+    if order != list(sorted(order)):
+        return ["The table directory is not in ascending order."]
+    return []
+
+def _testOverlaps(tableDirectory):
+    """
+    >>> test = [
+    ...     dict(tag="aaaa", offset=0, length=100),
+    ...     dict(tag="bbbb", offset=1000, length=100),
+    ... ]
+    >>> bool(_testOverlaps(test))
+    False
+    >>> test = [
+    ...     dict(tag="aaaa", offset=0, length=100),
+    ...     dict(tag="bbbb", offset=50, length=100),
+    ... ]
+    >>> bool(_testOverlaps(test))
+    True
+    >>> test = [
+    ...     dict(tag="aaaa", offset=0, length=100),
+    ...     dict(tag="bbbb", offset=0, length=100),
+    ... ]
+    >>> bool(_testOverlaps(test))
+    True
+    >>> test = [
+    ...     dict(tag="aaaa", offset=0, length=100),
+    ...     dict(tag="bbbb", offset=0, length=150),
+    ... ]
+    >>> bool(_testOverlaps(test))
+    True
+    """
+    # gather the edges
+    edges = {}
+    for entry in tableDirectory:
+        start = entry["offset"]
+        end = start + entry["length"]
+        edges[entry["tag"]] = (start, end)
+    # look for overlaps
+    overlaps = set()
+    for tag, (start, end) in edges.items():
+        for otherTag, (otherStart, otherEnd) in edges.items():
+            tag = tag.strip()
+            otherTag = otherTag.strip()
+            if tag == otherTag:
+                continue
+            if start >= otherStart and start < otherEnd:
+                l = sorted((tag, otherTag))
+                overlaps.add(tuple(l))
+            if end > otherStart and end <= otherEnd:
+                l = sorted((tag, otherTag))
+                overlaps.add(tuple(l))
+    # report
+    errors = []
+    if overlaps:
+        for t1, t2 in sorted(overlaps):
+            errors.append("The tables %s and %s overlap." % (t1, t2))
+    return errors
+
+def _testOffsets(tableDirectory):
     """
     >>> test = [
     ...     dict(tag="test", offset=1)
     ... ]
-    >>> bool(_testPadding(test))
+    >>> bool(_testOffsets(test))
     True
     >>> test = [
     ...     dict(tag="test", offset=2)
     ... ]
-    >>> bool(_testPadding(test))
+    >>> bool(_testOffsets(test))
     True
     >>> test = [
     ...     dict(tag="test", offset=3)
     ... ]
-    >>> bool(_testPadding(test))
+    >>> bool(_testOffsets(test))
     True
     >>> test = [
     ...     dict(tag="test", offset=4)
     ... ]
-    >>> bool(_testPadding(test))
+    >>> bool(_testOffsets(test))
     False
     """
     errors = []
     # make the entries sortable
     entries = [(entry["offset"], entry) for entry in tableDirectory]
-    prevTable = "end of table directory"
     for o, entry in sorted(entries):
         offset = entry["offset"]
         if offset % 4:
-            errors.append("Improper padding between %s and %s." % (prevTable, entry["tag"]))
-        prevTable = entry["tag"]
+            errors.append("The %s table does not begin on a 4-byte boundary." % entry["tag"].strip())
     return errors
 
 def _testFinalTablePadding(dataLength, numTables, finalTableTag):
@@ -941,7 +1053,7 @@ def _testGapAfterFinalTable(dataLength, tableDirectory):
     length = entry[-1]["length"]
     length = calc4BytePaddedLength(length)
     lastPosition = offset + length
-    if dataLength - lastPosition != 0:
+    if dataLength - lastPosition > 0:
         errors.append("Improper padding at the end of the file.")
     return errors
 
@@ -970,6 +1082,60 @@ def _testCheckSums(tableDirectory):
             errors.append("Invalid checksum for the %s table." % tag)
     return errors
 
+def _testPaddingValue(tableDirectory, data):
+    """
+    # before first table
+    >>> testDirectory = [dict(tag="aaaa", offset=28, length=4)]
+    >>> bool(_testPaddingValue(testDirectory, "\x01" * 32))
+    False
+    >>> testDirectory = [dict(tag="aaaa", offset=32, length=4)]
+    >>> bool(_testPaddingValue(testDirectory, "\x01" * 36))
+    True
+
+    # between tables
+    >>> testDirectory = [dict(tag="aaaa", offset=44, length=4), dict(tag="bbbb", offset=48, length=4)]
+    >>> bool(_testPaddingValue(testDirectory, "\x01" * 52))
+    False
+    >>> testDirectory = [dict(tag="aaaa", offset=44, length=4), dict(tag="bbbb", offset=52, length=4)]
+    >>> bool(_testPaddingValue(testDirectory, "\x01" * 56))
+    True
+
+    # after final table
+    >>> testDirectory = [dict(tag="aaaa", offset=28, length=4)]
+    >>> bool(_testPaddingValue(testDirectory, "\x01" * 32))
+    False
+    >>> testDirectory = [dict(tag="aaaa", offset=28, length=4)]
+    >>> bool(_testPaddingValue(testDirectory, "\x01" * 36))
+    True
+    """
+    errors = []
+    # check between directory and first table
+    # check between all tables
+    entries = [(entry["offset"], entry) for entry in tableDirectory]
+    prev = "table directory"
+    prevEnd = sfntDirectorySize + (sfntDirectoryEntrySize * len(tableDirectory))
+    for o, entry in sorted(entries):
+        tag = entry["tag"]
+        offset = entry["offset"]
+        length = entry["length"]
+        # slice the bytes between the previous and the current
+        if offset > prevEnd:
+            bytes = data[prevEnd:offset]
+            # replace \0 with nothing
+            bytes = bytes.replace("\0", "")
+            if bytes:
+                errors.append("Bytes between %s and %s are not null." % (prev, tag))
+        # shift for teh next table
+        prev = tag
+        prevEnd = offset + length
+    # check last table
+    entry = sorted(entries)[-1][1]
+    end = entry["offset"] + entry["length"]
+    bytes = data[end:]
+    bytes = bytes.replace("\0", "")
+    if bytes:
+        errors.append("Bytes after final table (%s) are not null." % entry["tag"])
+    return errors
 
 if __name__ == "__main__":
     import doctest
