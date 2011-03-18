@@ -11,7 +11,6 @@ more care.
 import zlib
 import struct
 import sstruct
-import numpy
 from cStringIO import StringIO
 from xml.etree import ElementTree
 from fontTools.ttLib import TTFont, debugmsg, sortedTagList
@@ -523,40 +522,13 @@ class WOFFWriter(object):
     def _handleHeadChecksum(self):
         if self.verbose:
             debugmsg("updating head checkSumAdjustment")
-        # build the sfnt header
-        searchRange, entrySelector, rangeShift = getSearchRange(self.numTables)
-        sfntDirectoryData = dict(
-            sfntVersion=self.flavor,
-            numTables=self.numTables,
-            searchRange=searchRange,
-            entrySelector=entrySelector,
-            rangeShift=rangeShift
-        )
-        # build the sfnt directory
-        directory = sstruct.pack(sfntDirectoryFormat, sfntDirectoryData)
-        sfntEntries = {}
+        # get the value
+        tables = {}
         offset = sfntDirectorySize + (sfntDirectoryEntrySize * self.numTables)
         for (index, entry, data) in sorted(self.tables.values()):
-            sfntEntry = SFNTDirectoryEntry()
-            sfntEntry.tag = entry.tag
-            sfntEntry.checkSum = entry.origChecksum
-            sfntEntry.offset = offset
-            sfntEntry.length = entry.origLength
-            sfntEntries[entry.tag] = sfntEntry
+            tables[entry.tag] = dict(offset=offset, length=entry.origLength, checkSum=entry.origChecksum)
             offset += calc4BytePaddedLength(entry.origLength)
-        for tag, sfntEntry in sorted(sfntEntries.items()):
-            directory += sfntEntry.toString()
-        # calculate the checkSumAdjustment
-        ## adapted from SFNTWriter.calcMasterChecksum
-        tags = sfntEntries.keys()
-        checksums = numpy.zeros(len(tags) + 1, numpy.int32)
-        for index, tag in enumerate(tags):
-            checksums[index] = sfntEntries[tag].checkSum
-        directoryEnd = sfntDirectorySize + (len(tags) * sfntDirectoryEntrySize)
-        assert directoryEnd == len(directory)
-        checksums[-1] = calcChecksum(directory)
-        checksum = numpy.add.reduce(checksums)
-        checkSumAdjustment = int(numpy.subtract.reduce(numpy.array([0xB1B0AFBA, checksum], numpy.uint32)))
+        checkSumAdjustment = calcHeadCheckSumAdjustment(tables)
         # set the value in the head table
         index, entry, data = self.tables["head"]
         data = data[:8] + struct.pack(">L", checkSumAdjustment) + data[12:]
@@ -679,6 +651,34 @@ def calcTableChecksum(tag, data):
     checksum = checksum & 0xffffffff
     return checksum
 
+def calcHeadCheckSumAdjustment(flavor, tables):
+    numTables = len(tables)
+    # build the sfnt header
+    searchRange, entrySelector, rangeShift = getSearchRange(numTables)
+    sfntDirectoryData = dict(
+        sfntVersion=flavor,
+        numTables=numTables,
+        searchRange=searchRange,
+        entrySelector=entrySelector,
+        rangeShift=rangeShift
+    )
+    # build the sfnt directory
+    directory = sstruct.pack(sfntDirectoryFormat, sfntDirectoryData)
+    for tag, entry in sorted(tables.items()):
+        entry = tables[tag]
+        sfntEntry = SFNTDirectoryEntry()
+        sfntEntry.tag = tag
+        sfntEntry.checkSum = entry["checkSum"]
+        sfntEntry.offset = entry["offset"]
+        sfntEntry.length = entry["length"]
+        directory += sfntEntry.toString()
+    # calculate the checkSumAdjustment
+    checkSums = [entry["checkSum"] for entry in tables.values()]
+    checkSums.append(calcChecksum(directory))
+    checkSumAdjustment = sum(checkSums)
+    checkSumAdjustment = (0xB1B0AFBA - checkSumAdjustment) & 0xffffffff
+    # done
+    return checkSumAdjustment
 
 # ----------------
 # SFNT Conformance
@@ -706,6 +706,7 @@ def checkSFNTConformance(file):
       to pad the table to a four byte boundary.
     - the checksums for each table in the table directory
       must be correct.
+    - the head checkSumAdjustment must be correct.
     - the padding bytes must be null.
 
     The returned value of this function will be a list.
@@ -763,6 +764,7 @@ def checkSFNTConformance(file):
     errors += _testPaddingValue(tableDirectory, data)
     # validate checksums
     errors += _testCheckSums(tableDirectory)
+    errors += _testHeadCheckSum(header, tableDirectory)
     # done.
     return errors
 
@@ -1082,6 +1084,27 @@ def _testCheckSums(tableDirectory):
         if checkSum != shouldBe:
             errors.append("Invalid checksum for the %s table." % tag)
     return errors
+
+def _testHeadCheckSum(header, tableDirectory):
+    """
+    >>> header = dict(sfntVersion="OTTO")
+    >>> tableDirectory = [
+    ...     dict(tag="head", offset=100, length=100, checkSum=123, data="00000000"+struct.pack(">L", 925903070)),
+    ...     dict(tag="aaab", offset=200, length=100, checkSum=456),
+    ...     dict(tag="aaac", offset=300, length=100, checkSum=789),
+    ... ]
+    >>> bool(_testHeadCheckSum(header, tableDirectory))
+    """
+    flavor = header["sfntVersion"]
+    tables = {}
+    for entry in tableDirectory:
+        tables[entry["tag"]] = entry
+    data = tables["head"]["data"][8:12]
+    checkSumAdjustment = struct.unpack(">L", data)[0]
+    shouldBe = calcHeadCheckSumAdjustment(flavor, tables)
+    if checkSumAdjustment != shouldBe:
+        return ["The head checkSumAdjustment value is incorrect."]
+    return []
 
 def _testPaddingValue(tableDirectory, data):
     """
