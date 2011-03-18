@@ -676,6 +676,7 @@ def calcTableChecksum(tag, data):
         checksum = calcChecksum(data[:8] + '\0\0\0\0' + data[12:])
     else:
         checksum = calcChecksum(data)
+    checksum = checksum & 0xffffffff
     return checksum
 
 
