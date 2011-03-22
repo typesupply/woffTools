@@ -528,7 +528,7 @@ class WOFFWriter(object):
         for (index, entry, data) in sorted(self.tables.values()):
             tables[entry.tag] = dict(offset=offset, length=entry.origLength, checkSum=entry.origChecksum)
             offset += calc4BytePaddedLength(entry.origLength)
-        checkSumAdjustment = calcHeadCheckSumAdjustment(tables)
+        checkSumAdjustment = calcHeadCheckSumAdjustment(self.flavor, tables)
         # set the value in the head table
         index, entry, data = self.tables["head"]
         data = data[:8] + struct.pack(">L", checkSumAdjustment) + data[12:]
