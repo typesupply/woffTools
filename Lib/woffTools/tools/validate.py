@@ -555,6 +555,28 @@ def _structGetFormat(format):
 # Tests: Header
 # -------------
 
+def testHeader(data, reporter):
+    """
+    Test the WOFF header.
+    """
+    functions = [
+        # _testHeaderSize,
+        # _testHeaderStructure,
+        _testHeaderSignature,
+        _testHeaderFlavor,
+        _testHeaderLength,
+        _testHeaderReserved,
+        _testHeaderTotalSFNTSize,
+        # _testHeaderMajorVersionAndMinorVersion,
+        _testHeaderNumTables
+    ]
+    for function in functions:
+        shouldStop = function(data, reporter)
+        if shouldStop:
+            return True
+    return False
+
+
 headerFormat = """
     signature:      4s
     flavor:         4s
@@ -572,35 +594,37 @@ headerFormat = """
 """
 headerSize = structCalcSize(headerFormat)
 
-def testHeaderSize(data, reporter):
-    """
-    Tests:
-    - Length of the data must be at least as long as the required header size.
-    """
-    if len(data) < headerSize:
-        reporter.logError(message="The header is not the proper length.")
-        return True
-    else:
-        reporter.logPass(message="The header length is correct.")
+# this is handled by the act of parsing the header
+#
+# def _testHeaderSize(data, reporter):
+#     """
+#     Tests:
+#     - Length of the data must be at least as long as the required header size.
+#     """
+#     if len(data) < headerSize:
+#         reporter.logError(message="The header is not the proper length.")
+#         return True
+#     else:
+#         reporter.logPass(message="The header length is correct.")
 
-def testHeaderStructure(data, reporter):
-    """
-    Tests:
-    - Header must be the proper structure.
-    """
-    try:
-        structUnpack(headerFormat, data)
-        reporter.logPass(message="The header structure is correct.")
-    except:
-        reporter.logError(message="The header is not properly structured.")
-        return True
+# this is handled by the act of parsing the header
+#
+# def _testHeaderStructure(data, reporter):
+#     """
+#     Tests:
+#     - Header must be the proper structure.
+#     """
+#     try:
+#         structUnpack(headerFormat, data)
+#         reporter.logPass(message="The header structure is correct.")
+#     except:
+#         reporter.logError(message="The header is not properly structured.")
+#         return True
 
-def testHeaderSignature(data, reporter):
+def _testHeaderSignature(data, reporter):
     """
     Tests:
     - The signature must be "wOFF".
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-magicnumber
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-nomagicnumber-reject
     """
     header = unpackHeader(data)
     signature = header["signature"]
@@ -610,13 +634,13 @@ def testHeaderSignature(data, reporter):
     else:
         reporter.logPass(message="The signature is correct.")
 
-def testHeaderFlavor(data, reporter):
+def _testHeaderFlavor(data, reporter):
     """
     Tests:
     - The flavor should be OTTO, 0x00010000 or true. Warn if another value is found.
     - If the flavor is OTTO, the CFF table must be present.
     - If the flavor is not OTTO, the CFF must not be present.
-    - If the directory cannot be unpacked, the flavor flavor can not be validated. Issue a warning.
+    - If the directory cannot be unpacked, the flavor can not be validated. Issue a warning.
     """
     header = unpackHeader(data)
     flavor = header["flavor"]
@@ -634,13 +658,13 @@ def testHeaderFlavor(data, reporter):
         except:
             reporter.logWarning(message="Could not validate the flavor.")
 
-def testHeaderLength(data, reporter):
+def _testHeaderLength(data, reporter):
     """
     Tests:
     - The length of the data must match the defined length.
-    - The length of the data must be long enough for header and directory for defined number of tables.
-    - The length of the data must be long enough to contain the table lengths defined in the directory,
-      the metaLength and the privLength.
+    # - The length of the data must be long enough for header and directory for defined number of tables.
+    # - The length of the data must be long enough to contain the table lengths defined in the directory,
+    #   the metaLength and the privLength.
     """
     header = unpackHeader(data)
     length = header["length"]
@@ -649,31 +673,29 @@ def testHeaderLength(data, reporter):
     if length != len(data):
         reporter.logError(message="Defined length (%d) does not match actual length of the data (%d)." % (length, len(data)))
         return True
-    if length < minLength:
-        reporter.logError(message="Invalid length defined (%d) for number of tables defined." % length)
-        return True
-    directory = unpackDirectory(data)
-    for entry in directory:
-        compLength = entry["compLength"]
-        if compLength % 4:
-            compLength += 4 - (compLength % 4)
-        minLength += compLength
-    metaLength = header["metaLength"]
-    privLength = header["privLength"]
-    if privLength and metaLength % 4:
-        metaLength += 4 - (metaLength % 4)
-    minLength += metaLength + privLength
-    if length < minLength:
-        reporter.logError(message="Defined length (%d) does not match the required length of the data (%d)." % (length, minLength))
-        return True
+    # if length < minLength:
+    #     reporter.logError(message="Invalid length defined (%d) for number of tables defined." % length)
+    #     return True
+    # directory = unpackDirectory(data)
+    # for entry in directory:
+    #     compLength = entry["compLength"]
+    #     if compLength % 4:
+    #         compLength += 4 - (compLength % 4)
+    #     minLength += compLength
+    # metaLength = header["metaLength"]
+    # privLength = header["privLength"]
+    # if privLength and metaLength % 4:
+    #     metaLength += 4 - (metaLength % 4)
+    # minLength += metaLength + privLength
+    # if length < minLength:
+    #     reporter.logError(message="Defined length (%d) does not match the required length of the data (%d)." % (length, minLength))
+    #     return True
     reporter.logPass(message="The length defined in the header is correct.")
 
-def testHeaderReserved(data, reporter):
+def _testHeaderReserved(data, reporter):
     """
     Tests:
     - The reserved bit must be set to 0.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-reserved
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-reserved-reject
     """
     header = unpackHeader(data)
     reserved = header["reserved"]
@@ -683,14 +705,12 @@ def testHeaderReserved(data, reporter):
     else:
         reporter.logPass(message="The value in the reserved field is correct.")
 
-def testHeaderTotalSFNTSize(data, reporter):
+def _testHeaderTotalSFNTSize(data, reporter):
     """
     Tests:
     - The size of the unpacked SFNT data must be a multiple of 4.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-totalsize-longword
     - The origLength values in the directory, with proper padding, must sum
       to the totalSfntSize in the header.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-totalsize-longword-reject
     """
     header = unpackHeader(data)
     directory = unpackDirectory(data)
@@ -713,19 +733,21 @@ def testHeaderTotalSFNTSize(data, reporter):
     if isValid:
         reporter.logPass(message="The total sfnt size is valid.")
 
-def testHeaderMajorVersionAndMinorVersion(data, reporter):
-    """
-    Tests:
-    - The major version + minor version ahould be greater than 1.0.
-    """
-    header = unpackHeader(data)
-    majorVersion = header["majorVersion"]
-    minorVersion = header["minorVersion"]
-    version = "%d.%d" % (majorVersion, minorVersion)
-    if float(version) < 1.0:
-        reporter.logWarning(message="The major version (%d) and minor version (%d) create a version (%s) less than 1.0." % (majorVersion, minorVersion, version))
-    else:
-        reporter.logPass(message="The major version and minor version are valid numbers.")
+# This may not need to be tested.
+#
+# def _testHeaderMajorVersionAndMinorVersion(data, reporter):
+#     """
+#     Tests:
+#     - The major version + minor version ahould be greater than 1.0.
+#     """
+#     header = unpackHeader(data)
+#     majorVersion = header["majorVersion"]
+#     minorVersion = header["minorVersion"]
+#     version = "%d.%d" % (majorVersion, minorVersion)
+#     if float(version) < 1.0:
+#         reporter.logWarning(message="The major version (%d) and minor version (%d) create a version (%s) less than 1.0." % (majorVersion, minorVersion, version))
+#     else:
+#         reporter.logPass(message="The major version and minor version are valid numbers.")
 
 
 # ----------------------
@@ -741,7 +763,7 @@ directoryFormat = """
 """
 directorySize = structCalcSize(directoryFormat)
 
-def testHeaderNumTables(data, reporter):
+def _testHeaderNumTables(data, reporter):
     """
     Tests:
     - The number of tables must be at least 1.
@@ -2382,35 +2404,27 @@ def findUniqueFileName(path):
 # ---------------
 
 tests = [
-    ("Header - Size",                    testHeaderSize),
-    ("Header - Structure",               testHeaderStructure),
-    ("Header - Signature",               testHeaderSignature),
-    ("Header - Flavor",                  testHeaderFlavor),
-    ("Header - Length",                  testHeaderLength),
-    ("Header - Reserved",                testHeaderReserved),
-    ("Header - Total sfnt Size",         testHeaderTotalSFNTSize),
-    ("Header - Version",                 testHeaderMajorVersionAndMinorVersion),
-    ("Header - Number of Tables",        testHeaderNumTables),
-    ("Directory - Table Order",          testDirectoryTableOrder),
-    ("Directory - Table Borders",        testDirectoryBorders),
-    ("Directory - Compressed Length",    testDirectoryCompressedLength),
-    ("Directory - Table Checksums",      testDirectoryChecksums),
-    ("Tables - Start Position",          testTableDataStart),
-    ("Tables - Gaps",                    testTableGaps),
-    ("Tables - Padding",                 testTablePadding),
-    ("Tables - Decompression",           testTableDecompression),
-    ("Tables - Original Length",         testDirectoryDecompressedLength),
-    ("Tables - checkSumAdjustment",      testHeadCheckSumAdjustment),
-    ("Tables - DSIG",                    testDSIG),
-    ("Metadata - Offset and Length",     testMetadataOffsetAndLength),
-    ("Metadata - Padding",               testMetadataPadding),
-    ("Metadata - Compression Applied",   testMetadataIsCompressed),
-    ("Metadata - Decompression",         testMetadataDecompression),
-    ("Metadata - Original Length",       testMetadataDecompressedLength),
-    ("Metadata - Parse",                 testMetadataParse),
-    ("Metadata - Structure",             testMetadataStructure),
-    ("Private Data - Offset and Length", testPrivateDataOffsetAndLength),
-    ("Private Data - Padding",           testPrivateDataPadding),
+    ("Header",                           testHeader),
+#    ("Directory - Table Order",          testDirectoryTableOrder),
+#    ("Directory - Table Borders",        testDirectoryBorders),
+#    ("Directory - Compressed Length",    testDirectoryCompressedLength),
+#    ("Directory - Table Checksums",      testDirectoryChecksums),
+#    ("Tables - Start Position",          testTableDataStart),
+#    ("Tables - Gaps",                    testTableGaps),
+#    ("Tables - Padding",                 testTablePadding),
+#    ("Tables - Decompression",           testTableDecompression),
+#    ("Tables - Original Length",         testDirectoryDecompressedLength),
+#    ("Tables - checkSumAdjustment",      testHeadCheckSumAdjustment),
+#    ("Tables - DSIG",                    testDSIG),
+#    ("Metadata - Offset and Length",     testMetadataOffsetAndLength),
+#    ("Metadata - Padding",               testMetadataPadding),
+#    ("Metadata - Compression Applied",   testMetadataIsCompressed),
+#    ("Metadata - Decompression",         testMetadataDecompression),
+#    ("Metadata - Original Length",       testMetadataDecompressedLength),
+#    ("Metadata - Parse",                 testMetadataParse),
+#    ("Metadata - Structure",             testMetadataStructure),
+#    ("Private Data - Offset and Length", testPrivateDataOffsetAndLength),
+#    ("Private Data - Padding",           testPrivateDataPadding),
 ]
 
 def validateFont(path, options, writeFile=True):
