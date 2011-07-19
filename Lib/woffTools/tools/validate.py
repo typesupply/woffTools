@@ -1787,7 +1787,11 @@ class TestResultGroup(list):
         return self._haveType("TRACEBACK")
 
 
-class HTMLReporter(object):
+class BaseReporter(object):
+
+    """
+    Base reporter. This establishes the required API for reporters.
+    """
 
     def __init__(self):
         self.title = ""
@@ -1826,6 +1830,36 @@ class HTMLReporter(object):
     def logTraceback(self, text):
         d = dict(type="TRACEBACK", message=text, information="")
         self.testResults[-1].append(d)
+
+    def getReport(self, *args, **kwargs):
+        raise NotImplementedError
+
+
+class TextReporter(BaseReporter):
+
+    """
+    Plain text reporter.
+    """
+
+    def getReport(self, reportNote=True, reportWarning=True, reportError=True, reportPass=True):
+        report = []
+        for group in self.testResults:
+            for result in group:
+                typ = result["type"]
+                if typ == "NOTE" and not reportNote:
+                    continue
+                elif typ == "WARNING" and not reportWarning:
+                    continue
+                elif typ == "ERROR" and not reportError:
+                    continue
+                elif typ == "PASS" and not reportPass:
+                    continue
+                t = "%s - %s: %s" % (result["type"], group.title, result["message"])
+                report.append(t)
+        return "\n".join(report)
+
+
+class HTMLReporter(BaseReporter):
 
     def getReport(self):
         writer = startHTML(title=self.title)
