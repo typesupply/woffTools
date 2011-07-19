@@ -662,9 +662,9 @@ def _testHeaderLength(data, reporter):
     """
     Tests:
     - The length of the data must match the defined length.
-    # - The length of the data must be long enough for header and directory for defined number of tables.
-    # - The length of the data must be long enough to contain the table lengths defined in the directory,
-    #   the metaLength and the privLength.
+    - The length of the data must be long enough for header and directory for defined number of tables.
+    - The length of the data must be long enough to contain the table lengths defined in the directory,
+      the metaLength and the privLength.
     """
     header = unpackHeader(data)
     length = header["length"]
@@ -673,23 +673,23 @@ def _testHeaderLength(data, reporter):
     if length != len(data):
         reporter.logError(message="Defined length (%d) does not match actual length of the data (%d)." % (length, len(data)))
         return True
-    # if length < minLength:
-    #     reporter.logError(message="Invalid length defined (%d) for number of tables defined." % length)
-    #     return True
-    # directory = unpackDirectory(data)
-    # for entry in directory:
-    #     compLength = entry["compLength"]
-    #     if compLength % 4:
-    #         compLength += 4 - (compLength % 4)
-    #     minLength += compLength
-    # metaLength = header["metaLength"]
-    # privLength = header["privLength"]
-    # if privLength and metaLength % 4:
-    #     metaLength += 4 - (metaLength % 4)
-    # minLength += metaLength + privLength
-    # if length < minLength:
-    #     reporter.logError(message="Defined length (%d) does not match the required length of the data (%d)." % (length, minLength))
-    #     return True
+    if length < minLength:
+        reporter.logError(message="Invalid length defined (%d) for number of tables defined." % length)
+        return True
+    directory = unpackDirectory(data)
+    for entry in directory:
+        compLength = entry["compLength"]
+        if compLength % 4:
+            compLength += 4 - (compLength % 4)
+        minLength += compLength
+    metaLength = header["metaLength"]
+    privLength = header["privLength"]
+    if privLength and metaLength % 4:
+        metaLength += 4 - (metaLength % 4)
+    minLength += metaLength + privLength
+    if length < minLength:
+        reporter.logError(message="Defined length (%d) does not match the required length of the data (%d)." % (length, minLength))
+        return True
     reporter.logPass(message="The length defined in the header is correct.")
 
 def _testHeaderReserved(data, reporter):
@@ -2428,7 +2428,14 @@ tests = [
 ]
 
 def validateFont(path, options, writeFile=True):
-    reporter = HTMLReporter()
+    # start the reporter
+    if options.outputFormat == "html":
+        reporter = HTMLReporter()
+    elif options.outputFormat == "text":
+        reporter = TextReporter()
+    else:
+        raise NotImplementedError
+    # log the title
     reporter.logTitle("Report: %s" % os.path.basename(path))
     # log fileinfo
     reporter.logFileInfo("FILE", os.path.basename(path))
@@ -2455,7 +2462,10 @@ def validateFont(path, options, writeFile=True):
         else:
             fileName = os.path.splitext(os.path.basename(path))[0]
             fileName += "_validate"
-            fileName += ".html"
+            if options.outputFormat == "html":
+                fileName += ".html"
+            else:
+                fileName += ".txt"
         # make the output directory
         if options.outputDirectory is not None:
             directory = options.outputDirectory
@@ -2488,6 +2498,7 @@ def main():
     parser.set_defaults(excludeTests=[])
     (options, args) = parser.parse_args()
     outputDirectory = options.outputDirectory
+    options.outputFormat = "html"
     if outputDirectory is not None and not os.path.exists(outputDirectory):
         print "Directory does not exist:", outputDirectory
         sys.exit()
