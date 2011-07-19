@@ -60,6 +60,451 @@ from xml.etree import ElementTree
 from xml.parsers.expat import ExpatError
 
 # ----------------------
+# Support: Metadata Spec
+# ----------------------
+
+"""
+The Extended Metadata specifications are defined as a set of
+nested Python objects. This allows for a very simple XML
+validation procedure. The common element structure is as follows:
+
+    {
+        # ----------
+        # Attributes
+        # ----------
+
+        # In all cases, the dictionary has the attribute name at the top
+        # with the possible value(s) as the value. If an attribute has
+        # more than one representation (for exmaple xml:lang and lang)
+        # the two are specified as a space separated string for example
+        # "xml:lang lang".
+
+        # Required
+        "requiredAttributes" : {
+            # empty or one or more of the following
+            "name" : "default as string, list of options or None"
+        },
+
+        # Recommended
+        "recommendedAttributes" : {
+            # empty or one or more of the following
+            "name" : "default as string, list of options or None"
+        },
+
+        # Optional
+        "optionalAttributes" : {
+            # empty or one or more of the following
+            "name" : "default as string, list of options or None"
+        },
+
+        # -------
+        # Content
+        # -------
+
+        "contentLevel" : "not allowed", "recommended" or "required",
+
+        # --------------
+        # Child Elements
+        # --------------
+
+        # In all cases, the dictionary has the element name at the top
+        # with a dictionary as the value. The value dictionary defines
+        # the number of times the shild-element may occur along with
+        # the specification for the child-element.
+
+        # Required
+        "requiredChildElements" : {
+            # empty or one or more of the following
+            "name" : {
+                "minimumOccurrences" : int or None,
+                "maximumOccurrences" : int or None,
+                "spec" : {}
+            }
+        },
+
+        # Recommended
+        "recommendedChildElements" : {
+            # empty or one or more of the following
+            "name" : {
+                # minimumOccurrences is implicitly 0
+                "maximumOccurrences" : int or None,
+                "spec" : {}
+            }
+        },
+
+        # Optional
+        "optionalChildElements" : {
+            # empty or one or more of the following
+            "name" : {
+                # minimumOccurrences is implicitly 0
+                "maximumOccurrences" : int or None,
+                "spec" : {}
+            }
+        }
+    }
+
+The recommendedAttributes and recommendedChildElements are optional
+but they are separated from the optionalAttributes and optionalChildElements
+to allow for more detailed reporting.
+"""
+
+# Metadata 1.0
+# ------------
+
+# Common Options
+
+dirOptions_1_0 = ["ltr", "rtl"]
+
+# Fourth-Level Elements
+
+divSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "dir" : dirOptions_1_0,
+        "class" : None
+    },
+    "content" : "recommended",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {
+        "div" : {
+            "maximumOccurrences" : None,
+            "spec" : "recursive divSpec_1_0" # special override for recursion.
+        },
+        "span" : {
+            "maximumOccurrences" : None,
+            "spec" : "recursive spanSpec_1_0" # special override for recursion.
+        }
+    }
+}
+
+spanSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "dir" : dirOptions_1_0,
+        "class" : None
+    },
+    "content" : "recommended",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {
+        "div" : {
+            "maximumOccurrences" : None,
+            "spec" : "recursive divSpec_1_0" # special override for recursion.
+        },
+        "span" : {
+            "maximumOccurrences" : None,
+            "spec" : "recursive spanSpec_1_0" # special override for recursion.
+        }
+    }
+}
+
+# Third-Level Elements
+
+creditSpec_1_0 = {
+    "requiredAttributes" : {
+        "name" : None
+    },
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "url" : None,
+        "role" : None,
+        "dir" : dirOptions_1_0,
+        "class" : None
+    },
+    "content" : "not allowed",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {}
+}
+
+textSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "url" : None,
+        "role" : None,
+        "dir" : dirOptions_1_0,
+        "class" : None,
+        "xml:lang lang" : None
+    },
+    "content" : "recommended",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {
+        "div" : {
+            "maximumOccurrences" : None,
+            "spec" : divSpec_1_0
+        },
+        "span" : {
+            "maximumOccurrences" : None,
+            "spec" : spanSpec_1_0
+        }
+    }
+}
+
+extensionNameSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "dir" : dirOptions_1_0,
+        "class" : None,
+        "xml:lang lang" : None
+    },
+    "content" : "recommended",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {}
+}
+
+extensionValueSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "dir" : dirOptions_1_0,
+        "class" : None,
+        "xml:lang lang" : None
+    },
+    "content" : "recommended",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {}
+}
+
+extensionItemSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "id" : None
+    },
+    "content" : "not allowed",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {
+        "name" : {
+            "minimumOccurrences" : 1,
+            "maximumOccurrences" : None,
+            "spec" : extensionNameSpec_1_0
+        },
+        "value" : {
+            "minimumOccurrences" : 1,
+            "maximumOccurrences" : None,
+            "spec" : extensionValueSpec_1_0
+        }
+    },
+    "optionalChildElements" : {}
+}
+
+# Second Level Elements
+
+uniqueidSpec_1_0 = {
+    "requiredAttributes" : {
+        "id" : None
+    },
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {},
+    "content" : "not allowed",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {}
+}
+
+vendorSpec_1_0 = {
+    "requiredAttributes" : {
+        "name" : None
+    },
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "url" : None,
+        "dir" : dirOptions_1_0,
+        "class" : None
+    },
+    "content" : "not allowed",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {}
+}
+
+creditsSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {},
+    "content" : "not allowed",
+    "requiredChildElements" : {
+        "credit" : {
+            "minimumOccurrences" : 1,
+            "maximumOccurrences" : None,
+            "spec" : creditSpec_1_0
+        }
+    },
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {}
+}
+
+descriptionSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "url" : None,
+    },
+    "content" : "not allowed",
+    "requiredChildElements" : {
+        "text" : {
+            "minimumOccurrences" : 1,
+            "maximumOccurrences" : None,
+            "spec" : textSpec_1_0
+        }
+    },
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {}
+}
+
+licenseSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "url" : None,
+        "id" : None
+    },
+    "content" : "not allowed",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {
+        "text" : {
+            "maximumOccurrences" : None,
+            "spec" : textSpec_1_0
+        }
+    }
+}
+
+copyrightSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {},
+    "content" : "not allowed",
+    "requiredChildElements" : {
+        "text" : {
+            "minimumOccurrences" : 1,
+            "maximumOccurrences" : None,
+            "spec" : textSpec_1_0
+        }
+    },
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {}
+}
+
+trademarkSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {},
+    "content" : "not allowed",
+    "requiredChildElements" : {
+        "text" : {
+            "minimumOccurrences" : 1,
+            "maximumOccurrences" : None,
+            "spec" : textSpec_1_0
+        }
+    },
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {}
+}
+
+licenseeSpec_1_0 = {
+    "requiredAttributes" : {
+        "name" : None,
+    },
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "dir" : dirOptions_1_0,
+        "class" : None
+    },
+    "content" : "not allowed",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {}
+}
+
+extensionSpec_1_0 = {
+    "requiredAttributes" : {},
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {
+        "id" : None
+    },
+    "content" : "not allowed",
+    "requiredChildElements" : {
+        "item" : {
+            "minimumOccurrences" : 1,
+            "maximumOccurrences" : None,
+            "spec" : extensionItemSpec_1_0
+        }
+    },
+    "recommendedChildElements" : {},
+    "optionalChildElements" : {
+        "name" : {
+            "maximumOccurrences" : None,
+            "spec" : extensionNameSpec_1_0
+        }
+    }
+}
+
+# First Level Elements
+
+metadataSpec_1_0 = {
+    "requiredAttributes" : {
+        "version" : "1.0"
+    },
+    "recommendedAttributes" : {},
+    "optionalAttributes" : {},
+    "content" : "not allowed",
+    "requiredChildElements" : {},
+    "recommendedChildElements" : {
+        "uniqueid" : {
+            "maximumOccurrences" : 1,
+            "spec" : uniqueidSpec_1_0
+        }
+    },
+    "optionalChildElements" : {
+        "vendor" : {
+            "maximumOccurrences" : 1,
+            "spec" : vendorSpec_1_0
+        },
+        "credits" : {
+            "maximumOccurrences" : 1,
+            "spec" : creditsSpec_1_0
+        },
+        "description" : {
+            "maximumOccurrences" : 1,
+            "spec" : descriptionSpec_1_0
+        },
+        "license" : {
+            "maximumOccurrences" : 1,
+            "spec" : licenseSpec_1_0
+        },
+        "copyright" : {
+            "maximumOccurrences" : 1,
+            "spec" : copyrightSpec_1_0
+        },
+        "trademark" : {
+            "maximumOccurrences" : 1,
+            "spec" : trademarkSpec_1_0
+        },
+        "licensee" : {
+            "maximumOccurrences" : 1,
+            "spec" : licenseeSpec_1_0
+        },
+        "licensee" : {
+            "maximumOccurrences" : None,
+            "spec" : licenseeSpec_1_0
+        },
+        "extension" : {
+            "maximumOccurrences" : None,
+            "spec" : extensionSpec_1_0
+        }
+    }
+}
+
+# ----------------------
 # Support: struct Helper
 # ----------------------
 
@@ -745,563 +1190,330 @@ def testMetadataParse(data, reporter):
     metadata = unpackMetadata(data, parse=False)
     try:
         tree = ElementTree.fromstring(metadata)
-    except ExpatError:
+    except (ExpatError, LookupError):
         reporter.logError(message="The metadata can not be parsed.")
         return True
     reporter.logPass(message="The metadata can be parsed.")
 
 def testMetadataStructure(data, reporter):
     """
-    Refer to lower level tests.
-    http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-schemavalid
-    http://dev.w3.org/webfonts/WOFF/spec/#conform-invalid-mustignore
+    Test the metadata structure.
     """
     if shouldSkipMetadataTest(data, reporter):
         return
     tree = unpackMetadata(data)
-    testMetadataStructureTopElement(tree, reporter)
-    testMetadataChildElements(tree, reporter)
-
-def testMetadataStructureTopElement(tree, reporter):
-    """
-    Tests:
-    - The metadata must be the main element.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadataelement-required
-    - The version attribute must be the only attribute of the metadata element.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadataversion-required
-    - The version must be set to 1.0.
-    - There must not be text in the metadata element.
-    """
-    haveError = False
-    # metadata as top element
+    # make sure the top element is metadata
     if tree.tag != "metadata":
         reporter.logError("The top element is not \"metadata\".")
-        haveError = True
-    # version as only attribute
-    if tree.attrib.keys() != ["version"]:
-        for key in sorted(tree.attrib.keys()):
-            if key != "version":
-                reporter.logError("Unknown \"%s\" attribute in \"metadata\" element." % key)
-                haveError = True
-    if "version" not in tree.attrib:
-        reporter.logError("The \"version\" attribute is not defined in \"metadata\" element.")
-        haveError = True
-    else:
-        # version is 1.0
-        version = tree.attrib["version"]
-        if version != "1.0":
-            reporter.logError("Invalid value (%s) for \"version\" attribute in \"metadata\" element." % version)
-            haveError = True
-    # text in element
-    if tree.text is not None and tree.text.strip():
-        reporter.logError("Text defined in \"metadata\" element.")
-        haveError = True
+        return
+    # sniff the version
+    version = tree.attrib.get("version")
+    if not version:
+        reporter.logError("The \"version\" attribute is not defined.")
+        return
+    # grab the appropriate specification
+    versionSpecs = {
+        "1.0" : metadataSpec_1_0
+    }
+    spec = versionSpecs.get(version)
+    if spec is None:
+        reporter.logError("Unknown version (%s)." % version)
+        return
+    haveError = _validateMetadataElement(tree, spec, reporter)
     if not haveError:
         reporter.logPass("The \"metadata\" element is properly formatted.")
 
-def testMetadataChildElements(tree, reporter):
-    """
-    Tests:
-    - The uniqueid should be present.
-    - There should be no unknown child elements.
-    - There should be no duplictae elements other than the extension element.
-    """
-    # look for known elements
-    testMetadataElementExistence(tree, reporter)
-    # look for duplicate elements
-    testMetadataDuplicateElements(tree, reporter)
-    # push elements to the appropriate functions
-    for element in tree:
-        if element.tag == "uniqueid":
-            testMetadataUniqueid(element, reporter)
-        elif element.tag == "vendor":
-            testMetadataVendor(element, reporter)
-        elif element.tag == "credits":
-            testMetadataCredits(element, reporter)
-        elif element.tag == "description":
-            testMetadataDescription(element, reporter)
-        elif element.tag == "license":
-            testMetadataLicense(element, reporter)
-        elif element.tag == "copyright":
-            testMetadataCopyright(element, reporter)
-        elif element.tag == "trademark":
-            testMetadataTrademark(element, reporter)
-        elif element.tag == "licensee":
-            testMetadataLicensee(element, reporter)
-        elif element.tag == "extension":
-            testMetadataExtension(element, reporter)
-        else:
-            reporter.logWarning(
-                message="Unknown \"%s\" element." % element.tag,
-                information="This element will be unknown to user agents.")
-
-def testMetadataElementExistence(tree, reporter):
-    """
-    The various elements may exist. Note elements that don't exist.
-    The uniqueid element should exist. Warn if it doesn't.
-    Ignore the xtension element if it is missing.
-    """
-    foundUniqueid = False
-    tags = "uniqueid vendor credits description license copyright trademark licensee".split(" ")
-    tags = dict.fromkeys(tags, 0)
-    for element in tree:
-        if element.tag not in tags:
-            continue
-        tags[element.tag] += 1
-    # unique id should get a warning
-    if not tags.pop("uniqueid"):
-        reporter.logWarning(message="No \"uniqueid\" child is in the \"metadata\" element.")
-    # others get a note
-    for tag, count in sorted(tags.items()):
-        if count == 0:
-            reporter.logNote(message="No \"%s\" child is in the \"metadata\" element." % tag)
-
-def testMetadataDuplicateElements(tree, reporter):
-    """
-    Elements, other than extension, should not be duplicated.
-    """
-    tags = "uniqueid vendor credits description license copyright trademark licensee".split(" ")
-    tags = dict.fromkeys(tags, 0)
-    for element in tree:
-        if element.tag in tags:
-            tags[element.tag] += 1
-    for tag, count in sorted(tags.items()):
-        if count > 1:
-            reporter.logWarning(message="The \"%s\" tag is used more than once in the \"metadata\" element." % tag)
-
-def testMetadataUniqueid(element, reporter):
-    """
-    Tests:
-    - The id attribute is required.
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should be no text.
-    """
-    required = "id".split(" ")
-    haveError = testMetadataAbstractElement(element, reporter, tag="uniqueid", requiredAttributes=required)
-    if not haveError:
-        reporter.logPass(message="The \"uniqueid\" element is properly formatted.")
-
-def testMetadataVendor(element, reporter):
-    """
-    Tests:
-    - The name attribute is required.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-vendor-required
-    - The url attribute is optional.
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should be no text.
-    """
-    required = ["name"]
-    optional = ["url"]
-    haveError = testMetadataAbstractElement(element, reporter, tag="vendor", requiredAttributes=required, optionalAttributes=optional)
-    if not haveError:
-        reporter.logPass(message="The \"vendor\" element is properly formatted.")
-
-def testMetadataCredits(element, reporter):
-    """
-    Tests:
-    There should be at least one credit child element.
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should be no text.
-    """
-    haveError = True
-    if testMetadataAbstractElement(element, reporter, tag="credits", requiredChildElements=["credit"]):
-        haveError = True
-    if not haveError:
-        reporter.logPass(message="The \"credits\" element is properly formatted.")
-    # test credit child elements
-    for child in element:
-        if child.tag == "credit":
-            testMetadataCredit(child, reporter)
-
-def testMetadataCredit(element, reporter):
-    """
-    Tests:
-    - The name attribute is required.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-creditnamerequired
-    - The url attribute is optional.
-    - The role attribute is optional.
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should be no text.
-    """
-    required = "name".split(" ")
-    optional = "url role".split(" ")
-    haveError = testMetadataAbstractElement(element, reporter, tag="credit", requiredAttributes=required, optionalAttributes=optional)
-    if not haveError:
-        reporter.logPass(message="The \"credit\" element is properly formatted.")
-
-def testMetadataDescription(element, reporter):
-    """
-    Tests:
-    - There must be at least one text child-element.
-    - The text element(s) must be valid.
-    - There should be no duplicated languages in the text elements.
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should be no text.
-    """
+def _validateMetadataElement(element, spec, reporter, parentTree=[]):
     haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="description", requiredChildElements="text".split(" "), missingChildElementsAlertLevel="warning"):
-        haveError = True
-    # validate the text elements
-    if testMetadataAbstractTextElements(element, reporter, "description"):
-        haveError = True
-    # test for duplicate text elements
-    if testMetadataAbstractElementLanguages(element, reporter, "description"):
-        haveError = True
-    # test for text element compliance
-    if not haveError:
-        reporter.logPass(message="The \"description\" element is properly formatted.")
-
-def testMetadataLicense(element, reporter):
-    """
-    Tests:
-    - The url attribute is optional.
-    - The id attribute is optional.
-    - There must be at least one text child-element.
-    - The text element(s) must be valid.
-    - There should be no duplicated languages in the text elements.
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should be no text.
-    """
-    optional = "url id".split(" ")
-    haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="license", optionalAttributes=optional, requiredChildElements="text".split(" "), missingChildElementsAlertLevel="warning"):
-        haveError = True
-    # validate the text elements
-    if testMetadataAbstractTextElements(element, reporter, "license"):
-        haveError = True
-    # test for duplicate text elements
-    if testMetadataAbstractElementLanguages(element, reporter, "license"):
-        haveError = True
-    # test for text element compliance
-    if not haveError:
-        reporter.logPass(message="The \"license\" element is properly formatted.")
-
-def testMetadataCopyright(element, reporter):
-    """
-    Tests:
-    - There must be at least one text child-element.
-    - The text element(s) must be valid.
-    - There should be no duplicated languages in the text elements.
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should be no text.
-    """
-    haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="copyright", requiredChildElements="text".split(" "), missingChildElementsAlertLevel="warning"):
-        haveError = True
-    # validate the text elements
-    if testMetadataAbstractTextElements(element, reporter, "copyright"):
-        haveError = True
-    # test for duplicate text elements
-    if testMetadataAbstractElementLanguages(element, reporter, "copyright"):
-        haveError = True
-    # test for text element compliance
-    if not haveError:
-        reporter.logPass(message="The \"copyright\" element is properly formatted.")
-
-def testMetadataTrademark(element, reporter):
-    """
-    Tests:
-    - There must be at least one text child-element.
-    - The text element(s) must be valid.
-    - There should be no duplicated languages in the text elements.
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should be no text.
-    """
-    haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="trademark", requiredChildElements="text".split(" "), missingChildElementsAlertLevel="warning"):
-        haveError = True
-    # validate the text elements
-    if testMetadataAbstractTextElements(element, reporter, "trademark"):
-        haveError = True
-    # test for duplicate text elements
-    if testMetadataAbstractElementLanguages(element, reporter, "trademark"):
-        haveError = True
-    # test for text element compliance
-    if not haveError:
-        reporter.logPass(message="The \"trademark\" element is properly formatted.")
-
-def testMetadataLicensee(element, reporter):
-    """
-    Tests:
-    - The name attribute is required.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-licensee-required
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should be no text.
-    """
-    required = "name".split(" ")
-    haveError = testMetadataAbstractElement(element, reporter, tag="licensee", requiredAttributes=required)
-    if not haveError:
-        reporter.logPass(message="The \"licensee\" element is properly formatted.")
-
-def testMetadataExtension(element, reporter):
-    """
-    Tests:
-    - The id attribute is optional.
-    - The optional name element may occur any number of times.
-    - There should be no duplicated languages in the name elements.
-    - There must be at least one item child-element.
-    - There should be no unknown attributes.
-    - There should be no unknown child elements.
-    - There should be no text.
-    """
-    haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="extension", optionalAttributes=["id"], requiredChildElements=["item"], optionalChildElements=["name"], noteMissingOptionalAttributes=False):
-        haveError = True
-    # test name elements
-    for child in element:
-        if child.tag == "name":
-            if testMetadataExtensionName(child, reporter):
-                haveError = True
-    testMetadataAbstractElementLanguages(element, reporter, "extension", "name")
-    # test item elements
-    for child in element:
-        if child.tag == "item":
-            if testMetadataExtensionItem(child, reporter):
-                haveError = True
-
-def testMetadataExtensionName(element, reporter):
-    """
-    - The lang attribute is optional.
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should text.
-    """
-    haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
-    return haveError
-
-def testMetadataExtensionItem(element, reporter):
-    """
-    - The id attribute is optional.
-    - There should be no text.
-    - There should be no unknown attributes.
-    - There must be at least one name child element.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-namerequired
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-noname-ignore
-    - There must be at least one value child element.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-valuerequired
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-novalue-ignore
-    - There should be no duplicated languages in the name elements.
-    - There should be no duplicated languages in the value elements.
-    """
-    haveError = False
-    if testMetadataAbstractElement(element, reporter, tag="extension", optionalAttributes=["id"], requiredChildElements=["name", "value"], noteMissingOptionalAttributes=False):
-        haveError = True
-    # test name elements
-    for child in element:
-        if child.tag == "name":
-            if testMetadataExtensionItemName(child, reporter):
-                haveError = True
-    if testMetadataAbstractElementLanguages(element, reporter, "extension", "name"):
-        haveError = True
-    # test value elements
-    for child in element:
-        if child.tag == "value":
-            if testMetadataExtensionItemValue(child, reporter):
-                haveError = True
-    if testMetadataAbstractElementLanguages(element, reporter, "extension", "value"):
-        haveError = True
-    if not haveError:
-        reporter.logPass(message="The \"extension\" element is properly formatted.")
-    return haveError
-
-def testMetadataExtensionItemName(element, reporter):
-    """
-    - The lang attribute is optional.
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should text.
-    """
-    haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
-    return haveError
-
-def testMetadataExtensionItemValue(element, reporter):
-    """
-    - The lang attribute is optional.
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - There should text.
-    """
-    haveError = testMetadataAbstractElement(element, reporter, "extension", optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False)
-    return haveError
-
-# support
-
-def testMetadataAbstractElement(element, reporter, tag,
-    requiredAttributes=[], optionalAttributes=[], noteMissingOptionalAttributes=True,
-    requiredChildElements=[], optionalChildElements=[], noteMissingOptionalChildElements=True,
-    missingChildElementsAlertLevel="error", requireText=False):
-    haveError = False
-    # missing required attribute
-    if testMetadataAbstractElementRequiredAttributes(element, reporter, tag, requiredAttributes):
-        haveError = True
-    # missing optional attributes
-    testMetadataAbstractElementOptionalAttributes(element, reporter, tag, optionalAttributes, noteMissingOptionalAttributes)
     # unknown attributes
-    if testMetadataAbstractElementUnknownAttributes(element, reporter, tag, requiredAttributes, optionalAttributes):
-        haveError = True
-    # empty values
-    if testMetadataAbstractElementEmptyValue(element, reporter, tag, requiredAttributes, optionalAttributes):
-        haveError = True
-    # text
-    if requireText:
-        if testMetadataAbstractElementRequiredText(element, reporter, tag):
-            haveError = True
-    else:
-        if testMetadataAbstractElementIllegalText(element, reporter, tag):
-            haveError = True
-    # required child elements
-    if requiredChildElements:
-        if testMetadataAbstractElementKnownChildElements(element, reporter, tag, requiredChildElements, optionalChildElements, missingChildElementsAlertLevel):
-            haveError = True
-    else:
-        if testMetadataAbstractElementIllegalChildElements(element, reporter, tag, optionalChildElements):
-            haveError = True
-    # optional child elements
-    if optionalChildElements:
-        testMetadataAbstractElementOptionalChildElements(element, reporter, tag, optionalChildElements, noteMissingOptionalChildElements)
-    return haveError
-
-def testMetadataAbstractElementRequiredAttributes(element, reporter, tag, requiredAttributes):
-    haveError = False
-    for attr in sorted(requiredAttributes):
-        if attr not in element.attrib:
-            reporter.logError(message="Required attribute \"%s\" is not defined in the \"%s\" element." % (attr, tag))
-            haveError = True
-    return haveError
-
-def testMetadataAbstractElementOptionalAttributes(element, reporter, tag, optionalAttributes, noteMissingOptionalAttributes=True):
-    for attr in sorted(optionalAttributes):
-        if attr not in element.attrib and noteMissingOptionalAttributes:
-            reporter.logNote(message="Optional attribute \"%s\" is not defined in the \"%s\" element." % (attr, tag))
-
-def testMetadataAbstractElementUnknownAttributes(element, reporter, tag, requiredAttributes, optionalAttributes):
-    haveError = False
-    for attr in sorted(element.attrib.keys()):
-        if attr not in requiredAttributes and attr not in optionalAttributes:
-            reporter.logWarning(
-                message="Unknown \"%s\" attribute of \"%s\" element." % (attr, tag),
-                information="This attribute will be unknown to user agents.")
-            haveError = True
-    return haveError
-
-def testMetadataAbstractElementEmptyValue(element, reporter, tag, requiredAttributes, optionalAttributes):
-    haveError = False
-    for attr, value in sorted(element.attrib.items()):
-        # skip unknown attributes
-        if attr not in requiredAttributes and attr not in optionalAttributes:
-            continue
-        # empty value
-        elif not value.strip():
-            reporter.logError(message="The value for the \"%s\" attribute in the \"%s\" element is an empty string." % (attr, tag))
-            haveError = True
-    return haveError
-
-def testMetadataAbstractElementRequiredText(element, reporter, tag):
-    haveError = False
-    if element.text is not None and element.text.strip():
-        pass
-    else:
-        reporter.logError("Text not defined in \"%s\" element." % tag)
-        haveError = True
-    return haveError
-
-def testMetadataAbstractElementIllegalText(element, reporter, tag):
-    haveError = False
-    if element.text is not None and element.text.strip():
-        reporter.logError("Text defined in \"%s\" element." % tag)
-        haveError = True
-    return haveError
-
-def testMetadataAbstractElementKnownChildElements(element, reporter, tag, requiredChildElements, optionalChildElements=[], missingChildElementsAlertLevel="error"):
-    foundTags = set()
-    for child in element:
-        if child.tag in requiredChildElements:
-            foundTags.add(child.tag)
-        elif child.tag in optionalChildElements:
-            continue
-        else:
-            reporter.logWarning(
-                message="Unknown \"%s\" child element in \"%s\" element." % (child.tag, tag),
-                information="This element will be unknown to user agents.")
-    haveError = False
-    for childTag in sorted(requiredChildElements):
-        if childTag not in foundTags:
-            if missingChildElementsAlertLevel == "error":
-                reporter.logError(message="Child element \"%s\" is not defined in the \"%s\" element." % (childTag, tag))
-            elif missingChildElementsAlertLevel == "warning":
-                reporter.logWarning(message="Child element \"%s\" is not defined in the \"%s\" element." % (childTag, tag))
-            elif missingChildElementsAlertLevel == "note":
-                reporter.logNote(message="Child element \"%s\" is not defined in the \"%s\" element." % (childTag, tag))
-            else:
-                raise NotImplementedError("Unknown missingChildElementsAlertLevel value: %s" % missingChildElementsAlertLevel)
-            haveError = True
-    return haveError
-
-def testMetadataAbstractElementIllegalChildElements(element, reporter, tag, optionalChildElements=[]):
-    haveError = False
-    if len(element):
-        for child in element:
-            if child.tag not in optionalChildElements:
-                haveError = True
+    knownAttributes = []
+    for attrib in spec["requiredAttributes"].keys() + spec["recommendedAttributes"].keys() + spec["optionalAttributes"].keys():
+        attrib = _parseAttribute(attrib)
+        knownAttributes.append(attrib)
+    for attrib in sorted(element.attrib.keys()):
+        # the search is a bit complicated because there are
+        # attributes that have more than one name.
+        found = False
+        for knownAttrib in knownAttributes:
+            if knownAttrib == attrib:
+                found = True
                 break
-    if haveError:
-        reporter.logError("Child elements defined in \"%s\" element." % tag)
-    return haveError
-
-def testMetadataAbstractElementOptionalChildElements(element, reporter, tag, optionalChildElements, noteMissingChildElements=True):
-    foundTags = set()
-    for child in element:
-        if child.tag in optionalChildElements:
-            foundTags.add(child.tag)
-    for childTag in sorted(optionalChildElements):
-        if childTag not in foundTags and noteMissingChildElements:
-            reporter.logNote(message="Optional child element \"%s\" is not defined in the \"%s\" element." % (childTag, tag))
-
-def testMetadataAbstractTextElements(element, reporter, tag):
-    """
-    Tests:
-    - There should be no unknown attributes.
-    - There should be no child elements.
-    - The lang attribute is optional.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-textlang
-    - Text must be present.
-    """
-    haveError = False
-    for child in element:
-        if child.tag != "text":
-            continue
-        if testMetadataAbstractElement(child, reporter, tag, optionalAttributes=["lang"], requireText=True, noteMissingOptionalAttributes=False):
+            elif isinstance(knownAttrib, list) and attrib in knownAttrib:
+                found = True
+                break
+        if not found:
+            _logMetadataResult(
+                reporter,
+                "error",
+                "Unknown \"%s\" attribute" % attrib,
+                element.tag,
+                parentTree
+            )
             haveError = True
+    # attributes
+    s = [
+        ("requiredAttributes", "required"),
+        ("recommendedAttributes", "recommended"),
+        ("optionalAttributes", "optional")
+    ]
+    for key, requirementLevel in s:
+        if spec[key]:
+            e = _validateAttributes(element, spec[key], reporter, parentTree, requirementLevel)
+            if e:
+                haveError = True
+    # unknown child-elements
+    knownChildElements = spec["requiredChildElements"].keys() + spec["recommendedChildElements"].keys() + spec["optionalChildElements"].keys()
+    for childElement in element:
+        if childElement.tag not in knownChildElements:
+           _logMetadataResult(
+               reporter,
+               "error",
+               "Unknown \"%s\" child-element" % childElement.tag,
+               element.tag,
+               parentTree
+           )
+           haveError = True
+    # child elements
+    s = [
+        ("requiredChildElements", "required"),
+        ("recommendedChildElements", "recommended"),
+        ("optionalChildElements", "optional")
+    ]
+    for key, requirementLevel in s:
+        if spec[key]:
+            for childElementTag, childElementData in sorted(spec[key].items()):
+                e = _validateChildElements(element, childElementTag, childElementData, reporter, parentTree, requirementLevel)
+                if e:
+                    haveError = True
+    # content
+    content = element.text
+    if content is not None:
+        content = content.strip()
+    if content and spec["content"] == "not allowed":
+        _logMetadataResult(
+            reporter,
+            "error",
+            "Content defined",
+            element.tag,
+            parentTree
+        )
+        haveError = True
+    elif not content and content and spec["content"] == "required":
+        _logMetadataResult(
+            reporter,
+            "error",
+            "Content not defined",
+            element.tag,
+            parentTree
+        )
+    elif not content and spec["content"] == "recommended":
+        _logMetadataResult(
+            reporter,
+            "warn",
+            "Content not defined",
+            element.tag,
+            parentTree
+        )
+    # log the result
+    if not haveError and parentTree == ["metadata"]:
+        reporter.logPass("The \"%s\" element is properly formatted." % element.tag)
+    # done
     return haveError
 
-def testMetadataAbstractElementLanguages(element, reporter, tag, childTag="text"):
-    """
-    Tests:
-    - There should be no duplicated languages in the text elements.
-    """
+def _parseAttribute(attrib):
+    if " " in attrib:
+        final = []
+        for a in attrib.split(" "):
+            if a.startswith("xml:"):
+                a = "{http://www.w3.org/XML/1998/namespace}" + a[4:]
+            final.append(a)
+        return final
+    return attrib
+
+def _unEtreeAttribute(attrib):
+    ns = "{http://www.w3.org/XML/1998/namespace}"
+    if attrib.startswith(ns):
+        attrib = "xml:" + attrib[len(ns):]
+    return attrib
+
+def _validateAttributes(element, spec, reporter, parentTree, requirementLevel):
     haveError = False
-    languages = {}
-    for child in element:
-        if child.tag != childTag:
-            continue
-        lang = child.attrib.get("lang", "undefined")
-        if lang not in languages:
-            languages[lang] = 0
-        languages[lang] += 1
-    for lang, count in sorted(languages.items()):
-        if count > 1:
+    for attrib, valueOptions in sorted(spec.items()):
+        attribs = _parseAttribute(attrib)
+        if isinstance(attribs, basestring):
+            attribs = [attribs]
+        found = []
+        for attrib in attribs:
+            if attrib in element.attrib:
+                found.append(attrib)
+        # make strings for reporting
+        if len(attribs) > 1:
+            attribString = ", ".join(["\"%s\"" % _unEtreeAttribute(i) for i in attribs])
+        else:
+            attribString = "\"%s\"" % attribs[0]
+        if len(found) == 0:
+            pass
+        elif len(found) > 1:
+            foundString = ", ".join(["\"%s\"" % _unEtreeAttribute(i) for i in found])
+        else:
+            foundString = "\"%s\"" % found[0]
+        # more than one of the mutually exclusive attributes found
+        if len(found) > 1:
+            _logMetadataResult(
+                reporter,
+                "error",
+                "More than one mutually exclusive attribute (%s) defined" % foundString,
+                element.tag,
+                parentTree
+            )
             haveError = True
-            reporter.logError(message="More than one instance of language \"%s\" in the \"%s\" element." % (lang, tag))
+        # missing
+        elif len(found) == 0:
+            if requirementLevel == "optional":
+                continue
+            elif requirementLevel == "required":
+                errorLevel = "error"
+            else:
+                errorLevel = "warn"
+            _logMetadataResult(
+                reporter,
+                errorLevel,
+                "%s %s attribute not defined" % (requirementLevel.title(), attrib),
+                element.tag,
+                parentTree
+            )
+            if requirementLevel == "required":
+                haveError = True
+        # incorrect value
+        else:
+            e = _validateAttributeValue(element, found[0], valueOptions, reporter, parentTree)
+            if e:
+                haveError = True
+    # done
     return haveError
+
+def _validateAttributeValue(element, attrib, valueOptions, reporter, parentTree):
+    haveError = False
+    value = element.attrib[attrib]
+    if isinstance(valueOptions, basestring):
+        valueOptions = [valueOptions]
+    # no defined value options
+    if valueOptions is None:
+        # the string is empty
+        if not value:
+            _logMetadataResult(
+                reporter,
+                "warn",
+                "Value for the \"%s\" attribute is an empty string" % attrib,
+                element.tag,
+                parentTree
+            )
+    # illegal value
+    elif value not in valueOptions:
+        _logMetadataResult(
+            reporter,
+            "warn",
+            "Value for the \"%s\" attribute is an empty string" % attrib,
+            element.tag,
+            parentTree
+        )
+        haveError = True
+    # return the error state
+    return haveError
+
+def _validateChildElements(element, childElementTag, childElementData, reporter, parentTree, requirementLevel):
+    haveError = False
+    # get the valid counts
+    minimumOccurrences = childElementData.get("minimumOccurrences", 0)
+    maximumOccurrences = childElementData.get("maximumOccurrences", None)
+    # find the appropriate elements
+    found = element.findall(childElementTag)
+    # not defined enough times
+    if minimumOccurrences == 1 and len(found) == 0:
+        _logMetadataResult(
+            reporter,
+            "error",
+            "%s \"%s\" child-element not defined" % (requirementLevel.title(), childElementTag),
+            element.tag,
+            parentTree
+        )
+        haveError = True
+    elif len(found) < minimumOccurrences:
+        _logMetadataResult(
+            reporter,
+            "error",
+            "%s \"%s\" child-element is defined %d times instead of the minimum %d times" % (requirementLevel.title(), childElementTag, len(found), minimumOccurrences),
+            element.tag,
+            parentTree
+        )
+        haveError = True
+    # not defined, but not recommended
+    elif len(found) == 0 and requirementLevel == "recommended":
+        _logMetadataResult(
+            reporter,
+            "warn",
+            "%s \"%s\" child-element is not defined" % (requirementLevel.title(), childElementTag),
+            element.tag,
+            parentTree
+        )
+    # defined too many times
+    if maximumOccurrences is not None:
+        if maximumOccurrences == 1 and len(found) > 1:
+            _logMetadataResult(
+                reporter,
+                "error",
+                "%s \"%s\" child-element defined more than once" % (requirementLevel.title(), childElementTag),
+                element.tag,
+                parentTree
+            )
+            haveError = True
+        elif len(found) > maximumOccurrences:
+            _logMetadataResult(
+                reporter,
+                "error",
+                "%s \"%s\" child-element defined %d times instead of the maximum %d times" % (requirementLevel.title(), childElementTag, len(found), minimumOccurrences),
+                element.tag,
+                parentTree
+            )
+            haveError = True
+    # validate the found elements
+    if not haveError:
+        for childElement in found:
+            # handle recursive child-elements
+            childElementSpec = childElementData["spec"]
+            if childElementSpec == "recursive divSpec_1_0":
+                childElementSpec = divSpec_1_0
+            elif childElementSpec == "recursive spanSpec_1_0":
+                childElementSpec = spanSpec_1_0
+            # dive
+            e = _validateMetadataElement(childElement, childElementSpec, reporter, parentTree + [element.tag])
+            if e:
+                haveError = True
+    # return the error state
+    return haveError
+
+# logging support
+
+def _logMetadataResult(reporter, result, message, elementTag, parentTree):
+    message = _formatMetadataResultMessage(message, elementTag, parentTree)
+    methods = {
+        "error" : reporter.logError,
+        "warn" : reporter.logWarning,
+        "note" : reporter.logNote,
+        "pass" : reporter.logPass
+    }
+    methods[result](message)
+
+def _formatMetadataResultMessage(message, elementTag, parentTree):
+    parentTree = parentTree + [elementTag]
+    if parentTree[0] == "metadata":
+        parentTree = parentTree[1:]
+    if parentTree:
+        parentTree = ["\"%s\"" % t for t in reversed(parentTree) if t is not None]
+        message += " " + " in ".join(parentTree)
+    message += "."
+    return message
+
 
 # -------------------
 # Tests: Private Data
