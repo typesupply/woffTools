@@ -14,7 +14,7 @@ TO DO:
 - check conformance levels of all tests
 - merge metadata and table info from woff-info
 - split length and offset tests into smaller functions that can be more easily doctested
-- split testDirectoryBorders into smaller functions
+- split _testTableDirectoryOverlap into smaller functions
 - be more resilient against zlib decompression failures
 """
 
@@ -607,19 +607,17 @@ headerSize = structCalcSize(headerFormat)
 #     else:
 #         reporter.logPass(message="The header length is correct.")
 
-# this is handled by the act of parsing the header
-#
-# def _testHeaderStructure(data, reporter):
-#     """
-#     Tests:
-#     - Header must be the proper structure.
-#     """
-#     try:
-#         structUnpack(headerFormat, data)
-#         reporter.logPass(message="The header structure is correct.")
-#     except:
-#         reporter.logError(message="The header is not properly structured.")
-#         return True
+def _testHeaderStructure(data, reporter):
+    """
+    Tests:
+    - Header must be the proper structure.
+    """
+    try:
+        structUnpack(headerFormat, data)
+        reporter.logPass(message="The header structure is correct.")
+    except:
+        reporter.logError(message="The header is not properly structured.")
+        return True
 
 def _testHeaderSignature(data, reporter):
     """
@@ -749,20 +747,6 @@ def _testHeaderTotalSFNTSize(data, reporter):
 #     else:
 #         reporter.logPass(message="The major version and minor version are valid numbers.")
 
-
-# ----------------------
-# Tests: Table Directory
-# ----------------------
-
-directoryFormat = """
-    tag:            4s
-    offset:         L
-    compLength:     L
-    origLength:     L
-    origChecksum:   L
-"""
-directorySize = structCalcSize(directoryFormat)
-
 def _testHeaderNumTables(data, reporter):
     """
     Tests:
@@ -783,65 +767,188 @@ def _testHeaderNumTables(data, reporter):
             return True
     reporter.logPass(message="The number of tables defined in the header is valid.")
 
-def testDirectoryTableOrder(data, reporter):
-    """
-    Tests:
-    - The directory entries must be stored in ascending order based on their tag.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-ascending
-    """
-    storedOrder = [table["tag"] for table in unpackDirectory(data)]
-    if storedOrder != sorted(storedOrder):
-        reporter.logError(message="The table directory entries are not stored in alphabetical order.")
-    else:
-        reporter.logPass(message="The table directory entries are stored in the proper order.")
+# ----------------------
+# Tests: Table Directory
+# ----------------------
 
-def testDirectoryBorders(data, reporter):
+def testTableDirectory(data, reporter):
+    """
+    Test the WOFF table directory.
+    """
+    functions = [
+        _testTableDirectoryStructure,
+        _testTableDirectory4ByteOffsets,
+        _testTableDirectoryPadding,
+        _testTableDirectoryOverlap,
+        _testTableDirectoryCompressedLength,
+        _testTableDirectoryDecompressedLength,
+        _testTableDirectoryChecksums,
+        _testTableDirectoryTableOrder
+    ]
+    for function in functions:
+        shouldStop = function(data, reporter)
+        if shouldStop:
+            return True
+
+directoryFormat = """
+    tag:            4s
+    offset:         L
+    compLength:     L
+    origLength:     L
+    origChecksum:   L
+"""
+directorySize = structCalcSize(directoryFormat)
+
+def _testTableDirectoryStructure(data, reporter):
     """
     Tests:
-    - The table offsets must not be before the end of the header/directory.
-    - The table offsets must not be after the end of the file.
-    - The table offset + length must not be greater than the available length.
-    - The table lengths must not longer than the available length.
+    - The entries in the table directory can be unpacked.
     """
     header = unpackHeader(data)
-    totalLength = header["length"]
     numTables = header["numTables"]
-    minOffset = headerSize + (directorySize * numTables)
-    maxLength = totalLength - minOffset
+    data = data[headerSize:]
+    try:
+        for index in range(numTables):
+            table, data = structUnpack(directoryFormat, data)
+        reporter.logPass(message="The table directory structure is correct.")
+    except:
+        reporter.logError(message="The table directory is not properly structured XXX.")
+        return True
+
+def _testTableDirectory4ByteOffsets(data, reporter):
+    """
+    Tests:
+    - The font tables must each begin on a 4-byte boundary.
+    """
     directory = unpackDirectory(data)
     shouldStop = False
     for table in directory:
         tag = table["tag"]
         offset = table["offset"]
-        length = table["compLength"]
-        offsetErrorMessage = "The \"%s\" table directory entry has an invalid offset (%d)." % (tag, offset)
-        lengthErrorMessage = "The \"%s\" table directory entry has an invalid length (%d)." % (tag, length)
-        haveError = False
-        if offset < minOffset:
-            reporter.logError(message=offsetErrorMessage)
-            haveError = True
-        elif offset > totalLength:
-            reporter.logError(message=offsetErrorMessage)
-            haveError = True
-        elif (offset + length) > totalLength:
-            reporter.logError(message=lengthErrorMessage)
-            haveError = True
-        elif length > maxLength:
-            reporter.logError(message=lengthErrorMessage)
-            haveError = True
-        if haveError:
+        if offset % 4:
+            reporter.logError(message="The \"%s\" table does not begin on a 4-byte boundary (%d)." % (tag, offset))
             shouldStop = True
         else:
-            reporter.logPass(message="The \"%s\" table directory entry has a valid offset and length." % tag)
+            reporter.logPass(message="The \"%s\" table begins on a 4-byte boundary." % tag)
     if shouldStop:
         return True
 
-def testDirectoryCompressedLength(data, reporter):
+def _testTableDirectoryPadding(data, reporter):
+    """
+    Tests:
+    - All tables, including the final table, must be padded to a
+      four byte boundary using null bytes as needed.
+    """
+    header = unpackHeader(data)
+    directory = unpackDirectory(data)
+    # test final table
+    endError = False
+    sfntEnd = None
+    if header["metaOffset"] != 0:
+        sfntEnd = header["metaOffset"]
+    elif header["privOffset"] != 0:
+        sfntEnd = header["privOffset"]
+    else:
+        sfntEnd = header["length"]
+    if sfntEnd % 4:
+        reporter.logError(message="The sfnt data does not end with proper padding.")
+    else:
+        reporter.logPass(message="The sfnt data ends with proper padding.")
+    # test the bytes used for padding
+    for table in directory:
+        tag = table["tag"]
+        offset = table["offset"]
+        length = table["compLength"]
+        paddingLength = calcPaddingLength(length)
+        if paddingLength:
+            paddingOffset = offset + length
+            padding = data[paddingOffset:paddingOffset+paddingLength]
+            expectedPadding = "\0" * paddingLength
+            if padding != expectedPadding:
+                reporter.logError(message="The \"%s\" table is not padded with null bytes." % tag)
+            else:
+                reporter.logPass(message="The \"%s\" table is padded with null bytes." % tag)
+
+def _testTableDirectoryOverlap(data, reporter):
+    """
+    Tests:
+    - The table offsets must not be before the end of the header/directory.
+    - The table offset + length must not be greater than the edge of the available space.
+    - The table offsets must not be after the edge of the available space.
+    - Table blocks must not overlap.
+    """
+    directory = unpackDirectory(data)
+    tablesWithProblems = set()
+    # test for overlapping tables
+    locations = []
+    for table in directory:
+        offset = table["offset"]
+        length = table["compLength"]
+        length = length + calcPaddingLength(length)
+        locations.append((offset, offset + length, table["tag"]))
+    for start, end, tag in locations:
+        for otherStart, otherEnd, otherTag in locations:
+            if tag == otherTag:
+                continue
+            haveOverlap = False
+            if start >= otherStart and end <= otherEnd:
+                haveOverlap = True
+            elif start >= otherStart and start < otherEnd:
+                haveOverlap = True
+            elif end > otherStart and end <= otherEnd:
+                phaveOverlap = True
+            if haveOverlap:
+                reporter.logError(message="The \"%s\" table overlaps the \"%s\" table." % (tag, otherTag))
+                tablesWithProblems.add(tag)
+                tablesWithProblems.add(otherTag)
+                shouldStop = True
+    # test for invalid offset, length and combo
+    header = unpackHeader(data)
+    if header["metaOffset"] != 0:
+        tableDataEnd = header["metaOffset"]
+    elif header["privOffset"] != 0:
+        tableDataEnd = header["privOffset"]
+    else:
+        tableDataEnd = header["length"]
+    numTables = header["numTables"]
+    minOffset = headerSize + (directorySize * numTables)
+    maxLength = tableDataEnd - minOffset
+    shouldStop = False
+    for table in directory:
+        tag = table["tag"]
+        offset = table["offset"]
+        length = table["compLength"]
+        # offset is before the beginning of the table data block
+        if offset < minOffset:
+            tablesWithProblems.add(tag)
+            message = "The \"%s\" table directory entry offset (%d) is before the start of the table data block (%d)." % (tag, offset, minOffset)
+            reporter.logError(message=message)
+            shouldStop = True
+        # offset is after the end of the table data block
+        elif offset > tableDataEnd:
+            tablesWithProblems.add(tag)
+            message = "The \"%s\" table directory entry offset (%d) is past the end of the table data block (%d)." % (tag, offset, tableDataEnd)
+            reporter.logError(message=message)
+            shouldStop = True
+        # offset + length is after the end of the table tada block
+        elif (offset + length) > tableDataEnd:
+            tablesWithProblems.add(tag)
+            message = "The \"%s\" table directory entry offset (%d) + length (%d) is past the end of the table data block (%d)." % (tag, offset, length, tableDataEnd)
+            reporter.logError(message=message)
+            shouldStop = True
+    # log passes
+    for entry in directory:
+        tag = entry["tag"]
+        if tag in tablesWithProblems:
+            continue
+        reporter.logPass(message="The \"%s\" table directory entry has a valid offset and length." % tag)
+    if shouldStop:
+        return True
+
+def _testTableDirectoryCompressedLength(data, reporter):
     """
     Tests:
     - The compressed length must be less than or equal to the original length.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-compressedlarger
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-uncompressed
     """
     directory = unpackDirectory(data)
     for table in directory:
@@ -853,7 +960,7 @@ def testDirectoryCompressedLength(data, reporter):
         else:
             reporter.logPass(message="The \"%s\" table directory entry has proper compLength and origLength values." % tag)
 
-def testDirectoryDecompressedLength(data, reporter):
+def _testTableDirectoryDecompressedLength(data, reporter):
     """
     Tests:
     - The decompressed length of the data must match the defined original length.
@@ -874,12 +981,13 @@ def testDirectoryDecompressedLength(data, reporter):
         else:
             reporter.logPass(message="The \"%s\" table directory entry has a proper original length compared to the actual decompressed data." % tag)
 
-def testDirectoryChecksums(data, reporter):
+def _testTableDirectoryChecksums(data, reporter):
     """
     Tests:
     - The checksums for the tables must match the checksums in the directory.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-checksumvalidate
+    - The head checksum adjustment must be correct.
     """
+    # check the table directory checksums
     directory = unpackDirectory(data)
     tables = unpackTableData(data)
     for entry in directory:
@@ -890,6 +998,26 @@ def testDirectoryChecksums(data, reporter):
             reporter.logError(message="The \"%s\" table directory entry original checksum (%s) does not match the checksum (%s) calculated from the data." % (tag, hex(origChecksum), hex(newChecksum)))
         else:
             reporter.logPass(message="The \"%s\" table directory entry original checksum is correct." % tag)
+    # check the head checksum adjustment
+    expectedChecksum = calcHeadChecksum(data)
+    head = tables["head"]
+    storedChecksum = struct.unpack(">L", head[8:12])[0]
+    if expectedChecksum != storedChecksum:
+        reporter.logError(message="The checkSumAdjustment in the head table (%s) does not match the checkSumAdjustment (%s) calculated from the data." % (hex(storedChecksum), hex(expectedChecksum)))
+    else:
+        reporter.logPass(message="The checkSumAdjustment in the head table is correct.")
+
+def _testTableDirectoryTableOrder(data, reporter):
+    """
+    Tests:
+    - The directory entries must be stored in ascending order based on their tag.
+      http://dev.w3.org/webfonts/WOFF/spec/#conform-ascending
+    """
+    storedOrder = [table["tag"] for table in unpackDirectory(data)]
+    if storedOrder != sorted(storedOrder):
+        reporter.logError(message="The table directory entries are not stored in alphabetical order.")
+    else:
+        reporter.logPass(message="The table directory entries are stored in the proper order.")
 
 # -------------
 # Tests: Tables
@@ -932,56 +1060,6 @@ def testTableGaps(data, reporter):
                 reporter.logPass(message="There is not extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
         prevTable = tag
         prevTableEnd = offset + compLength + calcPaddingLength(compLength)
-
-def testTablePadding(data, reporter):
-    """
-    Tests:
-    - The data for each table must begin on a four byte boundary.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-tablesize-longword
-    - All tables, including the final table, must be padded to a
-      four byte boundary using null bytes as needed.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-tablesize-longword
-    """
-    header = unpackHeader(data)
-    directory = unpackDirectory(data)
-    # test offset positions
-    for table in directory:
-        tag = table["tag"]
-        offset = table["offset"]
-        if offset % 4:
-            reporter.logError(message="The \"%s\" table does not begin on a 4-byte boundary." % tag)
-        else:
-            reporter.logPass(message="The \"%s\" table begins on a proper 4-byte boundary." % tag)
-    # test final table
-    endError = False
-    if header["metaOffset"] == 0 and header["privOffset"] == 0:
-        if header["length"] % 4:
-            endError = True
-    else:
-        if header["metaOffset"] != 0:
-            sfntEnd = header["metaOffset"]
-        else:
-            sfntEnd = header["privOffset"]
-        if sfntEnd % 4:
-            endError = True
-    if endError:
-        reporter.logError(message="The sfnt data does not end with proper padding.")
-    else:
-        reporter.logPass(message="The sfnt data ends with proper padding.")
-    # test the bytes used for padding
-    for table in directory:
-        tag = table["tag"]
-        offset = table["offset"]
-        length = table["compLength"]
-        paddingLength = calcPaddingLength(length)
-        if paddingLength:
-            paddingOffset = offset + length
-            padding = data[paddingOffset:paddingOffset+paddingLength]
-            expectedPadding = "\0" * paddingLength
-            if padding != expectedPadding:
-                reporter.logError(message="The \"%s\" table is not padded with null bytes." % tag)
-            else:
-                reporter.logPass(message="The \"%s\" table is padded with null bytes." % tag)
 
 def testTableDecompression(data, reporter):
     """
@@ -2360,7 +2438,11 @@ def unpackTableData(data):
         compLength = entry["compLength"]
         tableData = data[offset:offset+compLength]
         if compLength < origLength:
-            tableData = zlib.decompress(tableData)
+            try:
+                td = zlib.decompress(tableData)
+                tableData = td
+            except zlib.error:
+                pass
         tables[tag] = tableData
     return tables
 
@@ -2404,16 +2486,13 @@ def findUniqueFileName(path):
 # ---------------
 
 tests = [
-    ("Header",                           testHeader),
-#    ("Directory - Table Order",          testDirectoryTableOrder),
-#    ("Directory - Table Borders",        testDirectoryBorders),
-#    ("Directory - Compressed Length",    testDirectoryCompressedLength),
-#    ("Directory - Table Checksums",      testDirectoryChecksums),
+    ("Header",          testHeader),
+    ("Table Directory", testTableDirectory),
 #    ("Tables - Start Position",          testTableDataStart),
 #    ("Tables - Gaps",                    testTableGaps),
 #    ("Tables - Padding",                 testTablePadding),
 #    ("Tables - Decompression",           testTableDecompression),
-#    ("Tables - Original Length",         testDirectoryDecompressedLength),
+#    ("Tables - Original Length",         testTableDirectoryDecompressedLength),
 #    ("Tables - checkSumAdjustment",      testHeadCheckSumAdjustment),
 #    ("Tables - DSIG",                    testDSIG),
 #    ("Metadata - Offset and Length",     testMetadataOffsetAndLength),
@@ -2446,6 +2525,9 @@ def validateFont(path, options, writeFile=True):
     f.close()
     shouldStop = False
     for title, func in tests:
+        # skip groups that are not specified in the options
+        if options.testGroups and title not in options.testGroups:
+            continue 
         reporter.logTestTitle(title)
         shouldStop = func(data, reporter)
         if shouldStop:
@@ -2499,6 +2581,7 @@ def main():
     (options, args) = parser.parse_args()
     outputDirectory = options.outputDirectory
     options.outputFormat = "html"
+    options.testGroups = None # don't expose this to the commandline. it's for testing only.
     if outputDirectory is not None and not os.path.exists(outputDirectory):
         print "Directory does not exist:", outputDirectory
         sys.exit()
