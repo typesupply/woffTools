@@ -767,6 +767,208 @@ def _testHeaderNumTables(data, reporter):
             return True
     reporter.logPass(message="The number of tables defined in the header is valid.")
 
+# -------------
+# Tests: Tables
+# -------------
+
+def testDataBlocks(data, reporter):
+    """
+    Test the WOFF data blocks.
+    """
+    functions = [
+        _testBlocksOffsetLengthZero,
+        _testBlocksPositioning
+    ]
+    for function in functions:
+        shouldStop = function(data, reporter)
+        if shouldStop:
+            return True
+
+def _testBlocksOffsetLengthZero(data, reporter):
+    """
+    - The metadata must have the offset and length set to zero consistently.
+    - The private data must have the offset and length set to zero consistently.
+    """
+    shouldStop = False
+    header = unpackHeader(data)
+    # metadata
+    metaOffset = header["metaOffset"]
+    metaLength = header["metaLength"]
+    if metaOffset == 0 or metaLength == 0:
+        if metaOffset == 0 and metaLength == 0:
+            reporter.logPass(message="The length and offset are appropriately set for empty metadata.")
+        else:
+            reporter.logError(message="The metadata offset (%d) and metadata length (%d) are not properly set. If one is 0, they both must be 0." % (metaOffset, metaLength))
+            shouldStop = True
+    # private data
+    privOffset = header["privOffset"]
+    privLength = header["privLength"]
+    if privOffset == 0 or privLength == 0:
+        if privOffset == 0 and privLength == 0:
+            reporter.logPass(message="The length and offset are appropriately set for empty private data.")
+        else:
+            reporter.logError(message="The private data offset (%d) and private data length (%d) are not properly set. If one is 0, they both must be 0." % (privOffset, privLength))
+            shouldStop = True
+    # stop if an error has been found as it will
+    # cause problems with unpacking in later tests
+    if shouldStop:
+        return True
+
+def _testBlocksPositioning(data, reporter):
+    """
+    Tests:
+    - The table data must start immediately after the directory.
+    - The table data must end at the beginning of the metadata, the beginning of the private data or the end of the file.
+    - The metadata must start immediately after the table data.
+    - the metadata must end at the beginning of he private data (padded as needed) or the end of the file.
+    - The private data must start immediately after the table data or metadata.
+    - The private data must end at the edge of the file.
+    """
+    shouldStop = False
+    header = unpackHeader(data)
+    # table data start
+    directory = unpackDirectory(data)
+    expectedTableDataStart = headerSize + (directorySize * header["numTables"])
+    offsets = [entry["offset"] for entry in directory]
+    tableDataStart = min(offsets)
+    if expectedTableDataStart != tableDataStart:
+        reporter.logError(message="The table data does not start (%d) in the required position (%d)." % (tableDataStart, expectedTableDataStart))
+        shouldStop = True
+    else:
+        reporter.logPass(message="The table data begins in the required position.")
+    # table data end
+    if header["metaOffset"]:
+        definedTableDataEnd = header["metaOffset"]
+    elif header["privOffset"]:
+        definedTableDataEnd = header["privOffset"]
+    else:
+        definedTableDataEnd = header["length"]
+    directory = unpackDirectory(data)
+    ends = [table["offset"] + table["compLength"] + calcPaddingLength(table["compLength"]) for table in directory]
+    expectedTableDataEnd = max(ends)
+    if expectedTableDataEnd != definedTableDataEnd:
+        reporter.logError(message="The table data end (%d) is not in the required position (%d)." % (definedTableDataEnd, expectedTableDataEnd))
+        shouldStop = True
+    else:
+        reporter.logPass(message="The table data ends in the required position.")
+    # metadata
+    if header["metaOffset"]:
+        # start
+        expectedMetaStart = expectedTableDataEnd
+        definedMetaStart = header["metaOffset"]
+        if expectedMetaStart != definedMetaStart:
+            reporter.logError(message="The metadata does not start (%d) in the required position (%d)." % (definedMetaStart, expectedMetaStart))
+            shouldStop = True
+        else:
+            reporter.logPass(message="The metadata begins in the required position.")
+        # end
+        if header["privOffset"]:
+            definedMetaEnd = header["privOffset"]
+            needMetaPadding = True
+        else:
+            definedMetaEnd = header["length"]
+            needMetaPadding = False
+        expectedMetaEnd = header["metaOffset"] + header["metaLength"]
+        if needMetaPadding:
+            expectedMetaEnd += calcPaddingLength(header["metaLength"])
+        if expectedMetaEnd != definedMetaEnd:
+            reporter.logError(message="The metadata end (%d) is not in the required position (%d)." % (definedMetaEnd, expectedMetaEnd))
+            shouldStop = True
+        else:
+            reporter.logPass(message="The metadata ends in the required position.")
+    # private data
+    if header["privOffset"]:
+        # start
+        if header["metaOffset"]:
+            expectedPrivateStart = expectedMetaEnd
+        else:
+            expectedPrivateStart = expectedTableDataEnd
+        definedPrivateStart = header["privOffset"]
+        if expectedPrivateStart != definedPrivateStart:
+            reporter.logError(message="The private data does not start (%d) in the required position (%d)." % (definedPrivateStart, expectedPrivateStart))
+            shouldStop = True
+        else:
+            reporter.logPass(message="The private data begins in the required position.")
+        # end
+        expectedPrivateEnd = header["length"]
+        definedPrivateEnd = header["privOffset"] + header["privLength"]
+        if expectedPrivateEnd != definedPrivateEnd:
+            reporter.logError(message="The private data end (%d) is not in the required position (%d)." % (definedPrivateEnd, expectedPrivateEnd))
+            shouldStop = True
+        else:
+            reporter.logPass(message="The private data ends in the required position.")
+    # stop if an error has been found as it will
+    # cause problems with unpacking in later tests
+    if shouldStop:
+        return True
+
+# this should be a table level test
+#
+# def testTableGaps(data, reporter):
+#     """
+#     Tests:
+#     - There must not be any extraneous data between tables.
+#       http://dev.w3.org/webfonts/WOFF/spec/#conform-noextraneous
+#       http://dev.w3.org/webfonts/WOFF/spec/#conform-extraneous-reject
+#     """
+#     directory = unpackDirectory(data)
+#     prevTable = None
+#     prevTableEnd = None
+#     directory = [(table["offset"], table) for table in directory]
+#     for offset, table in sorted(directory):
+#         tag = table["tag"]
+#         compLength = table["compLength"]
+#         if prevTableEnd is not None:
+#             if prevTableEnd != offset:
+#                 reporter.logError(message="There is extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
+#             else:
+#                 reporter.logPass(message="There is not extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
+#         prevTable = tag
+#         prevTableEnd = offset + compLength + calcPaddingLength(compLength)
+
+# this should be a table level test
+#
+# def testTableDecompression(data, reporter):
+#     """
+#     Tests:
+#     - The table data, when the defined compressed length is less
+#       than the original length, must be properly compressed.
+#       http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
+#       http://dev.w3.org/webfonts/WOFF/spec/#conform-mustuncompress
+#     """
+#     shouldStop = False
+#     for table in unpackDirectory(data):
+#         tag = table["tag"]
+#         offset = table["offset"]
+#         compLength = table["compLength"]
+#         origLength = table["origLength"]
+#         if origLength <= compLength:
+#             continue
+#         entryData = data[offset:offset+compLength]
+#         try:
+#             decompressed = zlib.decompress(entryData)
+#             reporter.logPass(message="The \"%s\" table data can be decompressed with zlib." % tag)
+#         except zlib.error:
+#             shouldStop = True
+#             reporter.logError(message="The \"%s\" table data can not be decompressed with zlib." % tag)
+#     return shouldStop
+
+# this isn't the responsibility of this validator
+#
+# def testDSIG(data, reporter):
+#     """
+#     Tests:
+#     - If a DSIG is present, warn that this tool does not validate it.
+#     """
+#     directory = unpackDirectory(data)
+#     for entry in directory:
+#         if entry["tag"] == "DSIG":
+#             reporter.logWarning(
+#                 message="The font contains a \"DSIG\" table. This can not be validated by this tool.",
+#                 information="If you need this functionality, contact the developer of this tool.")
+#             return
+#     reporter.logNote(message="The font does not contain a \"DSIG\" table.")
+
 # ----------------------
 # Tests: Table Directory
 # ----------------------
@@ -999,13 +1201,20 @@ def _testTableDirectoryChecksums(data, reporter):
         else:
             reporter.logPass(message="The \"%s\" table directory entry original checksum is correct." % tag)
     # check the head checksum adjustment
-    expectedChecksum = calcHeadChecksum(data)
-    head = tables["head"]
-    storedChecksum = struct.unpack(">L", head[8:12])[0]
-    if expectedChecksum != storedChecksum:
-        reporter.logError(message="The checkSumAdjustment in the head table (%s) does not match the checkSumAdjustment (%s) calculated from the data." % (hex(storedChecksum), hex(expectedChecksum)))
+    if "head" not in tables:
+        reporter.logWarning(message="The font does not contain a \"head\" table.")
     else:
-        reporter.logPass(message="The checkSumAdjustment in the head table is correct.")
+        newChecksum = calcHeadChecksum(data)
+        data = tables["head"]
+        try:
+            checksum = struct.unpack(">L", data[8:12])[0]
+            if checksum != newChecksum:
+                reporter.logError(message="The \"head\" table checkSumAdjustment (%s) does not match the calculated checkSumAdjustment (%s)." % (hex(checksum), hex(newChecksum)))
+            else:
+                reporter.logPass(message="The \"head\" table checkSumAdjustment is valid.")
+        except:
+            reporter.logError(message="The \"head\" table is not properly structured.")
+
 
 def _testTableDirectoryTableOrder(data, reporter):
     """
@@ -1018,109 +1227,6 @@ def _testTableDirectoryTableOrder(data, reporter):
         reporter.logError(message="The table directory entries are not stored in alphabetical order.")
     else:
         reporter.logPass(message="The table directory entries are stored in the proper order.")
-
-# -------------
-# Tests: Tables
-# -------------
-
-def testTableDataStart(data, reporter):
-    """
-    Tests:
-    - The table data must start immediately after the directory.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-afterdirectory
-    """
-    header = unpackHeader(data)
-    directory = unpackDirectory(data)
-    requiredStart = headerSize + (directorySize * header["numTables"])
-    offsets = [entry["offset"] for entry in directory]
-    start = min(offsets)
-    if requiredStart != start:
-        reporter.logError(message="The table data does not start (%d) in the required position (%d)." % (start, requiredStart))
-    else:
-        reporter.logPass(message="The table data begins in the proper position.")
-
-def testTableGaps(data, reporter):
-    """
-    Tests:
-    - There must not be any extraneous data between tables.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-noextraneous
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-extraneous-reject
-    """
-    directory = unpackDirectory(data)
-    prevTable = None
-    prevTableEnd = None
-    directory = [(table["offset"], table) for table in directory]
-    for offset, table in sorted(directory):
-        tag = table["tag"]
-        compLength = table["compLength"]
-        if prevTableEnd is not None:
-            if prevTableEnd != offset:
-                reporter.logError(message="There is extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
-            else:
-                reporter.logPass(message="There is not extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
-        prevTable = tag
-        prevTableEnd = offset + compLength + calcPaddingLength(compLength)
-
-def testTableDecompression(data, reporter):
-    """
-    Tests:
-    - The table data, when the defined compressed length is less
-      than the original length, must be properly compressed.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-mustuncompress
-    """
-    shouldStop = False
-    for table in unpackDirectory(data):
-        tag = table["tag"]
-        offset = table["offset"]
-        compLength = table["compLength"]
-        origLength = table["origLength"]
-        if origLength <= compLength:
-            continue
-        entryData = data[offset:offset+compLength]
-        try:
-            decompressed = zlib.decompress(entryData)
-            reporter.logPass(message="The \"%s\" table data can be decompressed with zlib." % tag)
-        except zlib.error:
-            shouldStop = True
-            reporter.logError(message="The \"%s\" table data can not be decompressed with zlib." % tag)
-    return shouldStop
-
-def testHeadCheckSumAdjustment(data, reporter):
-    """
-    Tests:
-    - The SFNT data should contain a head table.
-    - The head table must have the proper structure.
-    - The checkSumAdjustment must be correct.
-    """
-    tables = unpackTableData(data)
-    if "head" not in tables:
-        reporter.logWarning(message="The font does not contain a \"head\" table.")
-        return
-    newChecksum = calcHeadChecksum(data)
-    data = tables["head"]
-    try:
-        checksum = struct.unpack(">L", data[8:12])[0]
-        if checksum != newChecksum:
-            reporter.logError(message="The \"head\" table checkSumAdjustment (%s) does not match the calculated checkSumAdjustment (%s)." % (hex(checksum), hex(newChecksum)))
-        else:
-            reporter.logPass(message="The \"head\" table checkSumAdjustment is valid.")
-    except:
-        reporter.logError(message="The \"head\" table is not properly structured.")
-
-def testDSIG(data, reporter):
-    """
-    Tests:
-    - If a DSIG is present, warn that this tool does not validate it.
-    """
-    directory = unpackDirectory(data)
-    for entry in directory:
-        if entry["tag"] == "DSIG":
-            reporter.logWarning(
-                message="The font contains a \"DSIG\" table. This can not be validated by this tool.",
-                information="If you need this functionality, contact the developer of this tool.")
-            return
-    reporter.logNote(message="The font does not contain a \"DSIG\" table.")
 
 # ----------------
 # Tests: Metadata
@@ -2487,14 +2593,8 @@ def findUniqueFileName(path):
 
 tests = [
     ("Header",          testHeader),
+    ("Data Blocks",     testDataBlocks),
     ("Table Directory", testTableDirectory),
-#    ("Tables - Start Position",          testTableDataStart),
-#    ("Tables - Gaps",                    testTableGaps),
-#    ("Tables - Padding",                 testTablePadding),
-#    ("Tables - Decompression",           testTableDecompression),
-#    ("Tables - Original Length",         testTableDirectoryDecompressedLength),
-#    ("Tables - checkSumAdjustment",      testHeadCheckSumAdjustment),
-#    ("Tables - DSIG",                    testDSIG),
 #    ("Metadata - Offset and Length",     testMetadataOffsetAndLength),
 #    ("Metadata - Padding",               testMetadataPadding),
 #    ("Metadata - Compression Applied",   testMetadataIsCompressed),
