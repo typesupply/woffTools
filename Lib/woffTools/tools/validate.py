@@ -7,46 +7,6 @@ A module for validating the the file structure of WOFF Files.
 This can also be used as a command line tool for validating WOFF files.
 """
 
-"""
-TO DO:
-- add the missing tests from the testable assertions below
-- test for proper ordering of table data, metadata, private data
-- check conformance levels of all tests
-- merge metadata and table info from woff-info
-- split length and offset tests into smaller functions that can be more easily doctested
-- split _testTableDirectoryOverlap into smaller functions
-- be more resilient against zlib decompression failures
-"""
-
-"""
-Testable Assertions (File Format):
-http://dev.w3.org/webfonts/WOFF/spec/
-
-#conform-private-last
-#conform-diroverlap-reject
-#conform-overlap-reject
-
-#conform-metadata-extensionelements
-#conform-metadata-extensions-optional
-These contradict another requirement that says that the scheme MUST be followed.
-
-#conform-nameoptional
-Is this pointing to the right thing in the spec?
-
-#conform-sameorder
-#conform-identical
-These can't be tested without access the original SNFT data.
-
-#conform-metadata-encoding
-This one is going to be complicated. Maybe someone on the list can help.
-
-#conform-ascending-recreated
-UA test.
-
-#conform-incorrect-reject
-AT test.
-"""
-
 # import
 
 import os
@@ -1684,97 +1644,6 @@ def _formatMetadataResultMessage(message, elementTag, parentTree):
     message += "."
     return message
 
-
-# -------------------
-# Tests: Private Data
-# -------------------
-
-def testPrivateDataOffsetAndLength(data, reporter):
-    """
-    Tests:
-    - If the private data offset is zero, the private data length must zero.
-      If the private data length is zero, the private data offset must be zero.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
-    - The private data offset must not be before the end of the header/directory.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
-    - The private data offset must not be after the end of the file.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
-    - The private data offset + length must not be greater than the available length.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
-    - The private data length must not be longer than the available length.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
-    - The private data offset must begin immediately after last table.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-afterfonttable
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
-    - The private data offset must begin on 4-byte boundary.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padalign
-    """
-    header = unpackHeader(data)
-    privOffset = header["privOffset"]
-    privLength = header["privLength"]
-    # empty offset or length
-    if privOffset == 0 or privLength == 0:
-        if privOffset == 0 and privLength == 0:
-            reporter.logPass(message="The length and offset are appropriately set for empty private data.")
-        else:
-            reporter.logError(message="The private data offset (%d) and private data length (%d) are not properly set. If one is 0, they both must be 0." % (privOffset, privLength))
-        return
-    # 4-byte boundary
-    if privOffset % 4:
-        reporter.logError(message="The private data does not begin on a four-byte boundary.")
-        return
-    # borders
-    totalLength = header["length"]
-    numTables = header["numTables"]
-    directory = unpackDirectory(data)
-    offsets = [headerSize + (directorySize * numTables)]
-    for table in directory:
-        tag = table["tag"]
-        offset = table["offset"]
-        length = table["compLength"]
-        offsets.append(offset + length)
-    if header["metaOffset"] != 0:
-        offsets.append(header["metaOffset"] + header["metaLength"])
-    minOffset = max(offsets)
-    if minOffset % 4:
-        minOffset += 4 - (minOffset % 4)
-    maxLength = totalLength - minOffset
-    offsetErrorMessage = "The private data has an invalid offset (%d)." % privOffset
-    lengthErrorMessage = "The private data has an invalid length (%d)." % privLength
-    if privOffset < minOffset:
-        reporter.logError(message=offsetErrorMessage)
-    elif privOffset > totalLength:
-        reporter.logError(message=offsetErrorMessage)
-    elif (privOffset + privLength) > totalLength:
-        reporter.logError(message=lengthErrorMessage)
-    elif privLength > maxLength:
-        reporter.logError(message=lengthErrorMessage)
-    elif privOffset != minOffset:
-        reporter.logError(message=offsetErrorMessage)
-    else:
-        reporter.logPass(message="The private data has properly set offset and length.")
-
-def testPrivateDataPadding(data, reporter):
-    """
-    - The private data must end on a 4-byte boundary, padded with null bytes as needed.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-afterprivate
-    """
-    header = unpackHeader(data)
-    offset = header["privOffset"]
-    length = header["privLength"]
-    end = header["length"]
-    if not length % 4:
-        reporter.logPass(message="The private data ends on a 4-byte boundary.")
-    else:
-        expectedPadding = "\0" * calcPaddingLength(length)
-        privateData = data[offset:end]
-        padding = privateData[length:]
-        if padding != expectedPadding:
-            reporter.logError(message="The private data is not properly padded to a 4-byte boundary.")
-        else:
-            reporter.logPass(message="The private data is properly padded to a 4-byte boundary.")
-
 # -------------------------
 # Support: Misc. SFNT Stuff
 # -------------------------
@@ -2560,8 +2429,6 @@ tests = [
     ("Data Blocks",     testDataBlocks),
     ("Table Directory", testTableDirectory),
     ("Metadata",        testMetadata)
-#    ("Private Data - Offset and Length", testPrivateDataOffsetAndLength),
-#    ("Private Data - Padding",           testPrivateDataPadding),
 ]
 
 def validateFont(path, options, writeFile=True):
