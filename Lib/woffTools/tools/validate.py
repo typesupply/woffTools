@@ -50,6 +50,7 @@ AT test.
 # import
 
 import os
+import re
 import time
 import sys
 import struct
@@ -280,8 +281,7 @@ extensionItemSpec_1_0 = {
         "id" : None
     },
     "content" : "not allowed",
-    "requiredChildElements" : {},
-    "recommendedChildElements" : {
+    "requiredChildElements" : {
         "name" : {
             "minimumOccurrences" : 1,
             "maximumOccurrences" : None,
@@ -292,6 +292,8 @@ extensionItemSpec_1_0 = {
             "maximumOccurrences" : None,
             "spec" : extensionValueSpec_1_0
         }
+    },
+    "recommendedChildElements" : {
     },
     "optionalChildElements" : {}
 }
@@ -494,7 +496,7 @@ metadataSpec_1_0 = {
             "spec" : licenseeSpec_1_0
         },
         "licensee" : {
-            "maximumOccurrences" : None,
+            "maximumOccurrences" : 1,
             "spec" : licenseeSpec_1_0
         },
         "extension" : {
@@ -560,14 +562,11 @@ def testHeader(data, reporter):
     Test the WOFF header.
     """
     functions = [
-        # _testHeaderSize,
-        # _testHeaderStructure,
         _testHeaderSignature,
         _testHeaderFlavor,
         _testHeaderLength,
         _testHeaderReserved,
         _testHeaderTotalSFNTSize,
-        # _testHeaderMajorVersionAndMinorVersion,
         _testHeaderNumTables
     ]
     for function in functions:
@@ -1232,11 +1231,28 @@ def _testTableDirectoryTableOrder(data, reporter):
 # Tests: Metadata
 # ----------------
 
-def shouldSkipMetadataTest(data, reporter):
+def testMetadata(data, reporter):
+    """
+    Test the WOFF metadata.
+    """
+    functions = [
+        _testMetadataDecompression,
+        _testMetadataDecompressedLength,
+        _testMetadataParse,
+        _testMetadataEncoding,
+        _testMetadataStructure
+    ]
+    for function in functions:
+        shouldStop = function(data, reporter)
+        if shouldStop:
+            return True
+    return False
+
+
+def _shouldSkipMetadataTest(data, reporter):
     """
     This is used at the start of metadata test functions.
     It writes a note and returns True if not metadata exists.
-    http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-optional
     """
     header = unpackHeader(data)
     metaOffset = header["metaOffset"]
@@ -1245,136 +1261,44 @@ def shouldSkipMetadataTest(data, reporter):
         reporter.logNote(message="No metadata to test.")
         return True
 
-def testMetadataOffsetAndLength(data, reporter):
-    """
-    Tests:
-    - If the metadata offset is zero, the metadata length must zero.
-      If the metadata length is zero, the metadata offset must be zero.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-zerometaprivate
-    - The metadata offset must not be before the end of the header/directory.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
-    - The metadata offset must not be after the end of the file.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
-    - The metadata offset + length must not be greater than the available length.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
-    - The metadata length must not be longer than the available length.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
-    - The metadata offset must begin immediately after last table.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-afterfonttable
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metaprivate-overlap-reject
-    - The metadata offset must begin on 4-byte boundary.
-    """
-    header = unpackHeader(data)
-    metaOffset = header["metaOffset"]
-    metaLength = header["metaLength"]
-    # empty offset or length
-    if metaOffset == 0 or metaLength == 0:
-        if metaOffset == 0 and metaLength == 0:
-            reporter.logPass(message="The length and offset are appropriately set for empty metadata.")
-        else:
-            reporter.logError(message="The metadata offset (%d) and metadata length (%d) are not properly set. If one is 0, they both must be 0." % (metaOffset, metaLength))
-        return
-    # 4-byte boundary
-    if metaOffset % 4:
-        reporter.logError(message="The metadata does not begin on a four-byte boundary.")
-        return
-    # borders
-    totalLength = header["length"]
-    numTables = header["numTables"]
-    directory = unpackDirectory(data)
-    offsets = [headerSize + (directorySize * numTables)]
-    for table in directory:
-        tag = table["tag"]
-        offset = table["offset"]
-        length = table["compLength"]
-        offsets.append(offset + length)
-    minOffset = max(offsets)
-    if minOffset % 4:
-        minOffset += 4 - (minOffset % 4)
-    maxLength = totalLength - minOffset
-    offsetErrorMessage = "The metadata has an invalid offset (%d)." % metaOffset
-    lengthErrorMessage = "The metadata has an invalid length (%d)." % metaLength
-    if metaOffset < minOffset:
-        reporter.logError(message=offsetErrorMessage)
-    elif metaOffset > totalLength:
-        reporter.logError(message=offsetErrorMessage)
-    elif (metaOffset + metaLength) > totalLength:
-        reporter.logError(message=lengthErrorMessage)
-    elif metaLength > maxLength:
-        reporter.logError(message=lengthErrorMessage)
-    elif metaOffset != minOffset:
-        reporter.logError(message=offsetErrorMessage)
-    else:
-        reporter.logPass(message="The metadata has properly set offset and length.")
+# does this need to be tested?
+#
+# def testMetadataIsCompressed(data, reporter):
+#     """
+#     Tests:
+#     - The metadata must be compressed.
+#     """
+#     if _shouldSkipMetadataTest(data, reporter):
+#         return
+#     header = unpackHeader(data)
+#     length = header["metaLength"]
+#     origLength = header["metaOrigLength"]
+#     if length >= origLength:
+#         reporter.logError(message="The compressed metdata length (%d) is higher than or equal to the original, uncompressed length (%d)." % (length, origLength))
+#         return True
+#     reporter.logPass(message="The compressed metdata length is smaller than the original, uncompressed length.")
 
-def testMetadataPadding(data, reporter):
-    """
-    - The metadata must end on a 4-byte boundary, padded with null bytes as needed.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-private-padmeta
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-noprivatepad
-    """
-    if shouldSkipMetadataTest(data, reporter):
-        return
-    header = unpackHeader(data)
-    offset = header["metaOffset"]
-    length = header["metaLength"]
-    if header["privOffset"] != 0:
-        end = header["privOffset"]
-    else:
-        end = header["length"]
-    if not length % 4:
-        reporter.logPass(message="The metadata ends on a 4-byte boundary.")
-    else:
-        expectedPadding = "\0" * calcPaddingLength(length)
-        metadata = data[offset:end]
-        padding = metadata[length:]
-        if padding != expectedPadding:
-            reporter.logError(message="The metadata is not properly padded to a 4-byte boundary.")
-        else:
-            reporter.logPass(message="The metadata is properly padded to a 4-byte boundary.")
-
-def testMetadataIsCompressed(data, reporter):
-    """
-    Tests:
-    - The metadata must be compressed.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-alwayscompress
-
-    XXX: this could theoretically issue an incorrect error. the compressed metadata
-    could be longer than the original metadata. maybe this isn't something that should
-    be worried about as that would surely be metadata that is not well formed.
-    """
-    if shouldSkipMetadataTest(data, reporter):
-        return
-    header = unpackHeader(data)
-    length = header["metaLength"]
-    origLength = header["metaOrigLength"]
-    if length >= origLength:
-        reporter.logError(message="The compressed metdata length (%d) is higher than or equal to the original, uncompressed length (%d)." % (length, origLength))
-        return True
-    reporter.logPass(message="The compressed metdata length is smaller than the original, uncompressed length.")
-
-def testMetadataDecompression(data, reporter):
+def _testMetadataDecompression(data, reporter):
     """
     Tests:
     - Metadata must be compressed with zlib.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-alwayscompress
     """
-    if shouldSkipMetadataTest(data, reporter):
+    if _shouldSkipMetadataTest(data, reporter):
         return
     compData = unpackMetadata(data, decompress=False, parse=False)
     try:
         zlib.decompress(compData)
     except zlib.error:
-        reporter.logError(message="The metdata can not be decompressed with zlib.")
+        reporter.logError(message="The metadata can not be decompressed with zlib.")
         return True
     reporter.logPass(message="The metadata can be decompressed with zlib.")
 
-def testMetadataDecompressedLength(data, reporter):
+def _testMetadataDecompressedLength(data, reporter):
     """
     Tests:
     - The length of the decompressed metadata must match the defined original length.
     """
-    if shouldSkipMetadataTest(data, reporter):
+    if _shouldSkipMetadataTest(data, reporter):
         return
     header = unpackHeader(data)
     metadata = unpackMetadata(data, parse=False)
@@ -1385,13 +1309,12 @@ def testMetadataDecompressedLength(data, reporter):
     else:
         reporter.logPass(message="The decompressed metadata length matches the original metadata length in the header.")
 
-def testMetadataParse(data, reporter):
+def _testMetadataParse(data, reporter):
     """
     Tests:
     - The metadata must be well-formed.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-metadata-wellformed
     """
-    if shouldSkipMetadataTest(data, reporter):
+    if _shouldSkipMetadataTest(data, reporter):
         return
     metadata = unpackMetadata(data, parse=False)
     try:
@@ -1401,11 +1324,52 @@ def testMetadataParse(data, reporter):
         return True
     reporter.logPass(message="The metadata can be parsed.")
 
-def testMetadataStructure(data, reporter):
+def _testMetadataEncoding(data, reporter):
+    """
+    Tests:
+    - The metadata must be UTF-8 encoded.
+    """
+    if _shouldSkipMetadataTest(data, reporter):
+        return
+    metadata = unpackMetadata(data, parse=False)
+    # do a quick decoding so that the re matches can work
+    try:
+        metadata = unicode(metadata)
+    except UnicodeDecodeError:
+        reporter.logError(message="The metadata encoding is not valid.")
+        return True
+    # XXX need to check BOM
+    # sniff the encoding
+    encoding = "UTF-8"
+    # grab the first line
+    if metadata.startswith("<?xml "):
+        # go to the first occurance of >
+        line = metadata.split(">", 1)[0]
+        # find an encoding string
+        pattern = re.compile(
+            "\s+"
+            "encoding"
+            "\s*"
+            "="
+            "\s*"
+            "[\"']+"
+            "([^\"']+)"
+        )
+        m = pattern.search(line)
+        if m:
+            encoding = m.group(1)
+    # report
+    if encoding != "UTF-8":
+        reporter.logError(message="The metadata encoding (%s) is not valid." % (encoding))
+        return True
+    else:
+        reporter.logPass(message="The metadata is properly encoded.")
+
+def _testMetadataStructure(data, reporter):
     """
     Test the metadata structure.
     """
-    if shouldSkipMetadataTest(data, reporter):
+    if _shouldSkipMetadataTest(data, reporter):
         return
     tree = unpackMetadata(data)
     # make sure the top element is metadata
@@ -1423,7 +1387,7 @@ def testMetadataStructure(data, reporter):
     }
     spec = versionSpecs.get(version)
     if spec is None:
-        reporter.logError("Unknown version (%s)." % version)
+        reporter.logError("Unknown version (\"%s\")." % version)
         return
     haveError = _validateMetadataElement(tree, spec, reporter)
     if not haveError:
@@ -1451,7 +1415,7 @@ def _validateMetadataElement(element, spec, reporter, parentTree=[]):
             _logMetadataResult(
                 reporter,
                 "error",
-                "Unknown \"%s\" attribute" % attrib,
+                "Unknown attribute (\"%s\")" % attrib,
                 element.tag,
                 parentTree
             )
@@ -1474,7 +1438,7 @@ def _validateMetadataElement(element, spec, reporter, parentTree=[]):
            _logMetadataResult(
                reporter,
                "error",
-               "Unknown \"%s\" child-element" % childElement.tag,
+               "Unknown child-element (\"%s\")" % childElement.tag,
                element.tag,
                parentTree
            )
@@ -1584,7 +1548,7 @@ def _validateAttributes(element, spec, reporter, parentTree, requirementLevel):
             _logMetadataResult(
                 reporter,
                 errorLevel,
-                "%s %s attribute not defined" % (requirementLevel.title(), attrib),
+                "%s \"%s\" attribute not defined" % (requirementLevel.title(), attrib),
                 element.tag,
                 parentTree
             )
@@ -1618,8 +1582,8 @@ def _validateAttributeValue(element, attrib, valueOptions, reporter, parentTree)
     elif value not in valueOptions:
         _logMetadataResult(
             reporter,
-            "warn",
-            "Value for the \"%s\" attribute is an empty string" % attrib,
+            "error",
+            "Invalid value (\"%s\") for the \"%s\" attribute" % (value, attrib),
             element.tag,
             parentTree
         )
@@ -1716,7 +1680,7 @@ def _formatMetadataResultMessage(message, elementTag, parentTree):
         parentTree = parentTree[1:]
     if parentTree:
         parentTree = ["\"%s\"" % t for t in reversed(parentTree) if t is not None]
-        message += " " + " in ".join(parentTree)
+        message += " in " + " in ".join(parentTree)
     message += "."
     return message
 
@@ -2595,13 +2559,7 @@ tests = [
     ("Header",          testHeader),
     ("Data Blocks",     testDataBlocks),
     ("Table Directory", testTableDirectory),
-#    ("Metadata - Offset and Length",     testMetadataOffsetAndLength),
-#    ("Metadata - Padding",               testMetadataPadding),
-#    ("Metadata - Compression Applied",   testMetadataIsCompressed),
-#    ("Metadata - Decompression",         testMetadataDecompression),
-#    ("Metadata - Original Length",       testMetadataDecompressedLength),
-#    ("Metadata - Parse",                 testMetadataParse),
-#    ("Metadata - Structure",             testMetadataStructure),
+    ("Metadata",        testMetadata)
 #    ("Private Data - Offset and Length", testPrivateDataOffsetAndLength),
 #    ("Private Data - Padding",           testPrivateDataPadding),
 ]
