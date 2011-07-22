@@ -941,7 +941,7 @@ def testTableDirectory(data, reporter):
         _testTableDirectoryStructure,
         _testTableDirectory4ByteOffsets,
         _testTableDirectoryPadding,
-        _testTableDirectoryOverlap,
+        _testTableDirectoryPositions,
         _testTableDirectoryCompressedLength,
         _testTableDirectoryDecompressedLength,
         _testTableDirectoryChecksums,
@@ -1031,13 +1031,14 @@ def _testTableDirectoryPadding(data, reporter):
             else:
                 reporter.logPass(message="The \"%s\" table is padded with null bytes." % tag)
 
-def _testTableDirectoryOverlap(data, reporter):
+def _testTableDirectoryPositions(data, reporter):
     """
     Tests:
     - The table offsets must not be before the end of the header/directory.
     - The table offset + length must not be greater than the edge of the available space.
     - The table offsets must not be after the edge of the available space.
     - Table blocks must not overlap.
+    - There must be no gaps between the tables.
     """
     directory = unpackDirectory(data)
     tablesWithProblems = set()
@@ -1098,6 +1099,23 @@ def _testTableDirectoryOverlap(data, reporter):
             message = "The \"%s\" table directory entry offset (%d) + length (%d) is past the end of the table data block (%d)." % (tag, offset, length, tableDataEnd)
             reporter.logError(message=message)
             shouldStop = True
+    # test for gaps
+    tables = []
+    for table in directory:
+        tag = table["tag"]
+        offset = table["offset"]
+        length = table["compLength"]
+        length += calcPaddingLength(length)
+        tables.append((offset, offset + length, tag))
+    tables.sort()
+    for index, (start, end, tag) in enumerate(tables):
+        if index == 0:
+            continue
+        prevStart, prevEnd, prevTag = tables[index - 1]
+        if prevEnd < start:
+            tablesWithProblems.add(prevTag)
+            tablesWithProblems.add(tag)
+            reporter.logError(message="Extraneous data between the \"%s\" and \"%s\" tables." % (prevTag, tag))
     # log passes
     for entry in directory:
         tag = entry["tag"]
