@@ -554,19 +554,6 @@ headerFormat = """
 """
 headerSize = structCalcSize(headerFormat)
 
-# this is handled by the act of parsing the header
-#
-# def _testHeaderSize(data, reporter):
-#     """
-#     Tests:
-#     - Length of the data must be at least as long as the required header size.
-#     """
-#     if len(data) < headerSize:
-#         reporter.logError(message="The header is not the proper length.")
-#         return True
-#     else:
-#         reporter.logPass(message="The header length is correct.")
-
 def _testHeaderStructure(data, reporter):
     """
     Tests:
@@ -690,22 +677,6 @@ def _testHeaderTotalSFNTSize(data, reporter):
             isValid = False
     if isValid:
         reporter.logPass(message="The total sfnt size is valid.")
-
-# This may not need to be tested.
-#
-# def _testHeaderMajorVersionAndMinorVersion(data, reporter):
-#     """
-#     Tests:
-#     - The major version + minor version ahould be greater than 1.0.
-#     """
-#     header = unpackHeader(data)
-#     majorVersion = header["majorVersion"]
-#     minorVersion = header["minorVersion"]
-#     version = "%d.%d" % (majorVersion, minorVersion)
-#     if float(version) < 1.0:
-#         reporter.logWarning(message="The major version (%d) and minor version (%d) create a version (%s) less than 1.0." % (majorVersion, minorVersion, version))
-#     else:
-#         reporter.logPass(message="The major version and minor version are valid numbers.")
 
 def _testHeaderNumTables(data, reporter):
     """
@@ -861,46 +832,6 @@ def _testBlocksPositioning(data, reporter):
     # cause problems with unpacking in later tests
     if shouldStop:
         return True
-
-# this should be a table level test
-#
-# def testTableGaps(data, reporter):
-#     """
-#     Tests:
-#     - There must not be any extraneous data between tables.
-#       http://dev.w3.org/webfonts/WOFF/spec/#conform-noextraneous
-#       http://dev.w3.org/webfonts/WOFF/spec/#conform-extraneous-reject
-#     """
-#     directory = unpackDirectory(data)
-#     prevTable = None
-#     prevTableEnd = None
-#     directory = [(table["offset"], table) for table in directory]
-#     for offset, table in sorted(directory):
-#         tag = table["tag"]
-#         compLength = table["compLength"]
-#         if prevTableEnd is not None:
-#             if prevTableEnd != offset:
-#                 reporter.logError(message="There is extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
-#             else:
-#                 reporter.logPass(message="There is not extraneous data between the \"%s\" and \"%s\" tables." % (prevTable, tag))
-#         prevTable = tag
-#         prevTableEnd = offset + compLength + calcPaddingLength(compLength)
-
-# this isn't the responsibility of this validator
-#
-# def testDSIG(data, reporter):
-#     """
-#     Tests:
-#     - If a DSIG is present, warn that this tool does not validate it.
-#     """
-#     directory = unpackDirectory(data)
-#     for entry in directory:
-#         if entry["tag"] == "DSIG":
-#             reporter.logWarning(
-#                 message="The font contains a \"DSIG\" table. This can not be validated by this tool.",
-#                 information="If you need this functionality, contact the developer of this tool.")
-#             return
-#     reporter.logNote(message="The font does not contain a \"DSIG\" table.")
 
 # ----------------------
 # Tests: Table Directory
