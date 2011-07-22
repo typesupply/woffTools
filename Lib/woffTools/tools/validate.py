@@ -627,8 +627,11 @@ def _testHeaderLength(data, reporter):
         if compLength % 4:
             compLength += 4 - (compLength % 4)
         minLength += compLength
-    metaLength = header["metaLength"]
-    privLength = header["privLength"]
+    metaLength = privLength = 0
+    if header["metaOffset"]:
+        metaLength = header["metaLength"]
+    if header["privOffset"]:
+        privLength = header["privLength"]
     if privLength and metaLength % 4:
         metaLength += 4 - (metaLength % 4)
     minLength += metaLength + privLength
@@ -1158,6 +1161,7 @@ def testMetadata(data, reporter):
     Test the WOFF metadata.
     """
     functions = [
+        _testMetadataPadding,
         _testMetadataDecompression,
         _testMetadataDecompressedLength,
         _testMetadataParse,
@@ -1170,7 +1174,6 @@ def testMetadata(data, reporter):
             return True
     return False
 
-
 def _shouldSkipMetadataTest(data, reporter):
     """
     This is used at the start of metadata test functions.
@@ -1182,6 +1185,24 @@ def _shouldSkipMetadataTest(data, reporter):
     if metaOffset == 0 or metaLength == 0:
         reporter.logNote(message="No metadata to test.")
         return True
+
+def _testMetadataPadding(data, reporter):
+    """
+    - The padding must be null.
+    """
+    header = unpackHeader(data)
+    if not header["metaOffset"] or not header["privOffset"]:
+        return
+    paddingLength = calcPaddingLength(header["metaLength"])
+    if not paddingLength:
+        return
+    paddingOffset = header["metaOffset"] + header["metaLength"]
+    padding = data[paddingOffset:paddingOffset + paddingLength]
+    expectedPadding = "\0" * paddingLength
+    if padding != expectedPadding:
+        reporter.logError(message="The metadata is not padded with null bytes.")
+    else:
+        reporter.logPass(message="The metadata is padded with null bytes,")
 
 # does this need to be tested?
 #
