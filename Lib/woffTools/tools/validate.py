@@ -1294,33 +1294,37 @@ def _testMetadataEncoding(data, reporter):
         return
     metadata = unpackMetadata(data, parse=False)
     errorMessage = "The metadata encoding is not valid."
+    encoding = None
     # check the BOM
     if not metadata.startswith("<"):
         if not metadata.startswith(codecs.BOM_UTF8):
             reporter.logError(message=errorMessage)
             return True
-    # do a quick decoding so that the re matches can work
-    try:
-        metadata = unicode(metadata)
-    except UnicodeDecodeError:
-        reporter.logError(message=errorMessage)
-        return True
-    # go to the first occurance of >
-    line = metadata.split(">", 1)[0]
-    # find an encoding string
-    pattern = re.compile(
-        "\s+"
-        "encoding"
-        "\s*"
-        "="
-        "\s*"
-        "[\"']+"
-        "([^\"']+)"
-    )
-    encoding = "UTF-8"
-    m = pattern.search(line)
-    if m:
-        encoding = m.group(1)
+        else:
+            encoding = "UTF-8"
+    # sniff the encoding
+    if encoding is None:
+        # do a quick decoding so that the re matches can work
+        try:
+            metadata = unicode(metadata)
+        except UnicodeDecodeError:
+            reporter.logError(message=errorMessage)
+            return True
+        # go to the first occurance of >
+        line = metadata.split(">", 1)[0]
+        # find an encoding string
+        pattern = re.compile(
+            "\s+"
+            "encoding"
+            "\s*"
+            "="
+            "\s*"
+            "[\"']+"
+            "([^\"']+)"
+        )
+        m = pattern.search(line)
+        if m:
+            encoding = m.group(1)
     # report
     if encoding != "UTF-8":
         reporter.logError(message=errorMessage)
