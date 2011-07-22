@@ -886,33 +886,6 @@ def _testBlocksPositioning(data, reporter):
 #         prevTable = tag
 #         prevTableEnd = offset + compLength + calcPaddingLength(compLength)
 
-# this should be a table level test
-#
-# def testTableDecompression(data, reporter):
-#     """
-#     Tests:
-#     - The table data, when the defined compressed length is less
-#       than the original length, must be properly compressed.
-#       http://dev.w3.org/webfonts/WOFF/spec/#conform-maycompress
-#       http://dev.w3.org/webfonts/WOFF/spec/#conform-mustuncompress
-#     """
-#     shouldStop = False
-#     for table in unpackDirectory(data):
-#         tag = table["tag"]
-#         offset = table["offset"]
-#         compLength = table["compLength"]
-#         origLength = table["origLength"]
-#         if origLength <= compLength:
-#             continue
-#         entryData = data[offset:offset+compLength]
-#         try:
-#             decompressed = zlib.decompress(entryData)
-#             reporter.logPass(message="The \"%s\" table data can be decompressed with zlib." % tag)
-#         except zlib.error:
-#             shouldStop = True
-#             reporter.logError(message="The \"%s\" table data can not be decompressed with zlib." % tag)
-#     return shouldStop
-
 # this isn't the responsibility of this validator
 #
 # def testDSIG(data, reporter):
@@ -1198,13 +1171,52 @@ def _testTableDirectoryTableOrder(data, reporter):
     """
     Tests:
     - The directory entries must be stored in ascending order based on their tag.
-      http://dev.w3.org/webfonts/WOFF/spec/#conform-ascending
     """
     storedOrder = [table["tag"] for table in unpackDirectory(data)]
     if storedOrder != sorted(storedOrder):
         reporter.logError(message="The table directory entries are not stored in alphabetical order.")
     else:
         reporter.logPass(message="The table directory entries are stored in the proper order.")
+
+# -----------------
+# Tests: Table Data
+# -----------------
+
+def testTableData(data, reporter):
+    """
+    Test the table data.
+    """
+    functions = [
+        _testTableDataDecompression
+    ]
+    for function in functions:
+        shouldStop = function(data, reporter)
+        if shouldStop:
+            return True
+    return False
+
+def _testTableDataDecompression(data, reporter):
+    """
+    Tests:
+    - The table data, when the defined compressed length is less
+      than the original length, must be properly compressed.
+    """
+    shouldStop = False
+    for table in unpackDirectory(data):
+        tag = table["tag"]
+        offset = table["offset"]
+        compLength = table["compLength"]
+        origLength = table["origLength"]
+        if origLength <= compLength:
+            continue
+        entryData = data[offset:offset+compLength]
+        try:
+            decompressed = zlib.decompress(entryData)
+            reporter.logPass(message="The \"%s\" table data can be decompressed with zlib." % tag)
+        except zlib.error:
+            shouldStop = True
+            reporter.logError(message="The \"%s\" table data can not be decompressed with zlib." % tag)
+    return shouldStop
 
 # ----------------
 # Tests: Metadata
@@ -2453,6 +2465,7 @@ tests = [
     ("Header",          testHeader),
     ("Data Blocks",     testDataBlocks),
     ("Table Directory", testTableDirectory),
+    ("Table Data",      testTableData),
     ("Metadata",        testMetadata)
 ]
 
