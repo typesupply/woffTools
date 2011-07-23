@@ -617,10 +617,10 @@ def _testHeaderLength(data, reporter):
     minLength = headerSize + (directorySize * numTables)
     if length != len(data):
         reporter.logError(message="Defined length (%d) does not match actual length of the data (%d)." % (length, len(data)))
-        return True
+        return
     if length < minLength:
         reporter.logError(message="Invalid length defined (%d) for number of tables defined." % length)
-        return True
+        return
     directory = unpackDirectory(data)
     for entry in directory:
         compLength = entry["compLength"]
@@ -637,7 +637,7 @@ def _testHeaderLength(data, reporter):
     minLength += metaLength + privLength
     if length < minLength:
         reporter.logError(message="Defined length (%d) does not match the required length of the data (%d)." % (length, minLength))
-        return True
+        return
     reporter.logPass(message="The length defined in the header is correct.")
 
 def _testHeaderReserved(data, reporter):
@@ -649,7 +649,6 @@ def _testHeaderReserved(data, reporter):
     reserved = header["reserved"]
     if reserved != 0:
         reporter.logError(message="Invalid value in reserved field (%d)." % reserved)
-        return True
     else:
         reporter.logPass(message="The value in the reserved field is correct.")
 
@@ -691,14 +690,14 @@ def _testHeaderNumTables(data, reporter):
     numTables = header["numTables"]
     if numTables < 1:
         reporter.logError(message="Invalid number of tables defined in header structure (%d)." % numTables)
-        return True
+        return
     data = data[headerSize:]
     for index in range(numTables):
         try:
             d, data = structUnpack(directoryFormat, data)
         except:
             reporter.logError(message="The defined number of tables in the header (%d) does not match the actual number of tables (%d)." % (numTables, index))
-            return True
+            return
     reporter.logPass(message="The number of tables defined in the header is valid.")
 
 # -------------
@@ -723,7 +722,6 @@ def _testBlocksOffsetLengthZero(data, reporter):
     - The metadata must have the offset and length set to zero consistently.
     - The private data must have the offset and length set to zero consistently.
     """
-    shouldStop = False
     header = unpackHeader(data)
     # metadata
     metaOffset = header["metaOffset"]
@@ -733,7 +731,6 @@ def _testBlocksOffsetLengthZero(data, reporter):
             reporter.logPass(message="The length and offset are appropriately set for empty metadata.")
         else:
             reporter.logError(message="The metadata offset (%d) and metadata length (%d) are not properly set. If one is 0, they both must be 0." % (metaOffset, metaLength))
-            shouldStop = True
     # private data
     privOffset = header["privOffset"]
     privLength = header["privLength"]
@@ -742,11 +739,6 @@ def _testBlocksOffsetLengthZero(data, reporter):
             reporter.logPass(message="The length and offset are appropriately set for empty private data.")
         else:
             reporter.logError(message="The private data offset (%d) and private data length (%d) are not properly set. If one is 0, they both must be 0." % (privOffset, privLength))
-            shouldStop = True
-    # stop if an error has been found as it will
-    # cause problems with unpacking in later tests
-    if shouldStop:
-        return True
 
 def _testBlocksPositioning(data, reporter):
     """
@@ -758,16 +750,16 @@ def _testBlocksPositioning(data, reporter):
     - The private data must start immediately after the table data or metadata.
     - The private data must end at the edge of the file.
     """
-    shouldStop = False
     header = unpackHeader(data)
     # table data start
     directory = unpackDirectory(data)
+    if not directory:
+        return
     expectedTableDataStart = headerSize + (directorySize * header["numTables"])
     offsets = [entry["offset"] for entry in directory]
     tableDataStart = min(offsets)
     if expectedTableDataStart != tableDataStart:
         reporter.logError(message="The table data does not start (%d) in the required position (%d)." % (tableDataStart, expectedTableDataStart))
-        shouldStop = True
     else:
         reporter.logPass(message="The table data begins in the required position.")
     # table data end
@@ -782,7 +774,6 @@ def _testBlocksPositioning(data, reporter):
     expectedTableDataEnd = max(ends)
     if expectedTableDataEnd != definedTableDataEnd:
         reporter.logError(message="The table data end (%d) is not in the required position (%d)." % (definedTableDataEnd, expectedTableDataEnd))
-        shouldStop = True
     else:
         reporter.logPass(message="The table data ends in the required position.")
     # metadata
@@ -792,7 +783,6 @@ def _testBlocksPositioning(data, reporter):
         definedMetaStart = header["metaOffset"]
         if expectedMetaStart != definedMetaStart:
             reporter.logError(message="The metadata does not start (%d) in the required position (%d)." % (definedMetaStart, expectedMetaStart))
-            shouldStop = True
         else:
             reporter.logPass(message="The metadata begins in the required position.")
         # end
@@ -807,7 +797,6 @@ def _testBlocksPositioning(data, reporter):
             expectedMetaEnd += calcPaddingLength(header["metaLength"])
         if expectedMetaEnd != definedMetaEnd:
             reporter.logError(message="The metadata end (%d) is not in the required position (%d)." % (definedMetaEnd, expectedMetaEnd))
-            shouldStop = True
         else:
             reporter.logPass(message="The metadata ends in the required position.")
     # private data
@@ -820,7 +809,6 @@ def _testBlocksPositioning(data, reporter):
         definedPrivateStart = header["privOffset"]
         if expectedPrivateStart != definedPrivateStart:
             reporter.logError(message="The private data does not start (%d) in the required position (%d)." % (definedPrivateStart, expectedPrivateStart))
-            shouldStop = True
         else:
             reporter.logPass(message="The private data begins in the required position.")
         # end
@@ -828,13 +816,8 @@ def _testBlocksPositioning(data, reporter):
         definedPrivateEnd = header["privOffset"] + header["privLength"]
         if expectedPrivateEnd != definedPrivateEnd:
             reporter.logError(message="The private data end (%d) is not in the required position (%d)." % (definedPrivateEnd, expectedPrivateEnd))
-            shouldStop = True
         else:
             reporter.logPass(message="The private data ends in the required position.")
-    # stop if an error has been found as it will
-    # cause problems with unpacking in later tests
-    if shouldStop:
-        return True
 
 # ----------------------
 # Tests: Table Directory
@@ -881,7 +864,7 @@ def _testTableDirectoryStructure(data, reporter):
             table, data = structUnpack(directoryFormat, data)
         reporter.logPass(message="The table directory structure is correct.")
     except:
-        reporter.logError(message="The table directory is not properly structured XXX.")
+        reporter.logError(message="The table directory is not properly structured.")
         return True
 
 def _testTableDirectory4ByteOffsets(data, reporter):
@@ -890,17 +873,13 @@ def _testTableDirectory4ByteOffsets(data, reporter):
     - The font tables must each begin on a 4-byte boundary.
     """
     directory = unpackDirectory(data)
-    shouldStop = False
     for table in directory:
         tag = table["tag"]
         offset = table["offset"]
         if offset % 4:
             reporter.logError(message="The \"%s\" table does not begin on a 4-byte boundary (%d)." % (tag, offset))
-            shouldStop = True
         else:
             reporter.logPass(message="The \"%s\" table begins on a 4-byte boundary." % tag)
-    if shouldStop:
-        return True
 
 def _testTableDirectoryPadding(data, reporter):
     """
@@ -966,12 +945,11 @@ def _testTableDirectoryPositions(data, reporter):
             elif start >= otherStart and start < otherEnd:
                 haveOverlap = True
             elif end > otherStart and end <= otherEnd:
-                phaveOverlap = True
+                haveOverlap = True
             if haveOverlap:
                 reporter.logError(message="The \"%s\" table overlaps the \"%s\" table." % (tag, otherTag))
                 tablesWithProblems.add(tag)
                 tablesWithProblems.add(otherTag)
-                shouldStop = True
     # test for invalid offset, length and combo
     header = unpackHeader(data)
     if header["metaOffset"] != 0:
@@ -983,7 +961,6 @@ def _testTableDirectoryPositions(data, reporter):
     numTables = header["numTables"]
     minOffset = headerSize + (directorySize * numTables)
     maxLength = tableDataEnd - minOffset
-    shouldStop = False
     for table in directory:
         tag = table["tag"]
         offset = table["offset"]
@@ -993,19 +970,16 @@ def _testTableDirectoryPositions(data, reporter):
             tablesWithProblems.add(tag)
             message = "The \"%s\" table directory entry offset (%d) is before the start of the table data block (%d)." % (tag, offset, minOffset)
             reporter.logError(message=message)
-            shouldStop = True
         # offset is after the end of the table data block
         elif offset > tableDataEnd:
             tablesWithProblems.add(tag)
             message = "The \"%s\" table directory entry offset (%d) is past the end of the table data block (%d)." % (tag, offset, tableDataEnd)
             reporter.logError(message=message)
-            shouldStop = True
         # offset + length is after the end of the table tada block
         elif (offset + length) > tableDataEnd:
             tablesWithProblems.add(tag)
             message = "The \"%s\" table directory entry offset (%d) + length (%d) is past the end of the table data block (%d)." % (tag, offset, length, tableDataEnd)
             reporter.logError(message=message)
-            shouldStop = True
     # test for gaps
     tables = []
     for table in directory:
@@ -1029,8 +1003,6 @@ def _testTableDirectoryPositions(data, reporter):
         if tag in tablesWithProblems:
             continue
         reporter.logPass(message="The \"%s\" table directory entry has a valid offset and length." % tag)
-    if shouldStop:
-        return True
 
 def _testTableDirectoryCompressedLength(data, reporter):
     """
@@ -1135,7 +1107,6 @@ def _testTableDataDecompression(data, reporter):
     - The table data, when the defined compressed length is less
       than the original length, must be properly compressed.
     """
-    shouldStop = False
     for table in unpackDirectory(data):
         tag = table["tag"]
         offset = table["offset"]
@@ -1148,9 +1119,7 @@ def _testTableDataDecompression(data, reporter):
             decompressed = zlib.decompress(entryData)
             reporter.logPass(message="The \"%s\" table data can be decompressed with zlib." % tag)
         except zlib.error:
-            shouldStop = True
             reporter.logError(message="The \"%s\" table data can not be decompressed with zlib." % tag)
-    return shouldStop
 
 # ----------------
 # Tests: Metadata
@@ -1281,7 +1250,7 @@ def _testMetadataEncoding(data, reporter):
     if not metadata.startswith("<"):
         if not metadata.startswith(codecs.BOM_UTF8):
             reporter.logError(message=errorMessage)
-            return True
+            return
         else:
             encoding = "UTF-8"
     # sniff the encoding
@@ -1291,7 +1260,7 @@ def _testMetadataEncoding(data, reporter):
             metadata = unicode(metadata)
         except UnicodeDecodeError:
             reporter.logError(message=errorMessage)
-            return True
+            return
         # go to the first occurance of >
         line = metadata.split(">", 1)[0]
         # find an encoding string
@@ -1310,7 +1279,6 @@ def _testMetadataEncoding(data, reporter):
     # report
     if encoding != "UTF-8":
         reporter.logError(message=errorMessage)
-        return True
     else:
         reporter.logPass(message="The metadata is properly encoded.")
 
