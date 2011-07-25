@@ -1664,7 +1664,6 @@ def calcChecksum(tag, data):
 def calcHeadChecksum(data):
     header = unpackHeader(data)
     directory = unpackDirectory(data)
-    tables = unpackTableData(data)
     numTables = header["numTables"]
     # build the sfnt directory
     searchRange, entrySelector, rangeShift = getSearchRange(numTables)
