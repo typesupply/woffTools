@@ -1027,6 +1027,9 @@ def _testTableDirectoryDecompressedLength(data, reporter):
         if compLength >= origLength:
             continue
         decompressedData = tableData[tag]
+        # couldn't be decompressed. handled elsewhere.
+        if decompressedData is None:
+            continue
         decompressedLength = len(decompressedData)
         if origLength != decompressedLength:
             reporter.logError(message="The \"%s\" table directory entry has an original length (%d) that does not match the actual length of the decompressed data (%d)." % (tag, origLength, decompressedLength))
@@ -1045,7 +1048,11 @@ def _testTableDirectoryChecksums(data, reporter):
     for entry in directory:
         tag = entry["tag"]
         origChecksum = entry["origChecksum"]
-        newChecksum = calcChecksum(tag, tables[tag])
+        decompressedData = tables[tag]
+        # couldn't be decompressed.
+        if decompressedData is None:
+            continue
+        newChecksum = calcChecksum(tag, decompressedData)
         if newChecksum != origChecksum:
             reporter.logError(message="The \"%s\" table directory entry original checksum (%s) does not match the checksum (%s) calculated from the data." % (tag, hex(origChecksum), hex(newChecksum)))
         else:
@@ -2338,7 +2345,7 @@ def unpackTableData(data):
                 td = zlib.decompress(tableData)
                 tableData = td
             except zlib.error:
-                pass
+                tableData = None
         tables[tag] = tableData
     return tables
 
