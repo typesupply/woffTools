@@ -939,14 +939,7 @@ def _testTableDirectoryPositions(data, reporter):
         for otherStart, otherEnd, otherTag in locations:
             if tag == otherTag:
                 continue
-            haveOverlap = False
-            if start >= otherStart and end <= otherEnd:
-                haveOverlap = True
-            elif start >= otherStart and start < otherEnd:
-                haveOverlap = True
-            elif end > otherStart and end <= otherEnd:
-                haveOverlap = True
-            if haveOverlap:
+            if start >= otherStart and start < otherEnd:
                 reporter.logError(message="The \"%s\" table overlaps the \"%s\" table." % (tag, otherTag))
                 tablesWithProblems.add(tag)
                 tablesWithProblems.add(otherTag)
