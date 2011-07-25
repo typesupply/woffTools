@@ -1256,11 +1256,11 @@ def _testMetadataEncoding(data, reporter):
         else:
             encoding = "UTF-8"
     # sniff the encoding
-    if encoding is None:
-        # do a quick decoding so that the re matches can work
-        try:
-            metadata = unicode(metadata)
-        except UnicodeDecodeError:
+    else:
+        # quick test to ensure that the regular expression will work.
+        # the string must start with <?xml. this will catch
+        # other encodings such as: <\x00?\x00x\x00m\x00l
+        if not metadata.startswith("<?xml"):
             reporter.logError(message=errorMessage)
             return
         # go to the first occurance of >
