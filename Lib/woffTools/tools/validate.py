@@ -1122,6 +1122,8 @@ def testMetadata(data, reporter):
     """
     Test the WOFF metadata.
     """
+    if _shouldSkipMetadataTest(data, reporter):
+        return False
     functions = [
         _testMetadataPadding,
         _testMetadataDecompression,
