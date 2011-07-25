@@ -1278,6 +1278,8 @@ def _testMetadataEncoding(data, reporter):
         m = pattern.search(line)
         if m:
             encoding = m.group(1)
+        else:
+            encoding = "UTF-8"
     # report
     if encoding != "UTF-8":
         reporter.logError(message=errorMessage)
