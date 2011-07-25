@@ -2327,7 +2327,12 @@ def unpackTableData(data):
         offset = entry["offset"]
         origLength = entry["origLength"]
         compLength = entry["compLength"]
-        tableData = data[offset:offset+compLength]
+        if offset > len(data) or offset < 0 or (offset + compLength) < 0:
+            tableData = ""
+        elif offset + compLength > len(data):
+            tableData = data[offset:]
+        else:
+            tableData = data[offset:offset+compLength]
         if compLength < origLength:
             try:
                 td = zlib.decompress(tableData)
