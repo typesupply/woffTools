@@ -261,7 +261,11 @@ class WOFFReader(object):
         # unpack the header
         self.file.seek(0)
         bytes = self.file.read(woffHeaderSize)
+        if len(bytes) != woffHeaderSize:
+            raise WOFFLibError("Not a properly formatted WOFF file.")
         sstruct.unpack(woffHeaderFormat, bytes, self)
+        if self.signature != "wOFF":
+            raise WOFFLibError("Not a properly formatted WOFF file.")
         # unpack the directory
         self.tables = {}
         for i in range(self.numTables):
