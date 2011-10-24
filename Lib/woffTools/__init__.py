@@ -202,10 +202,14 @@ class WOFFFont(TTFont):
         metaOrigLength = None
         metaLength = None
         if hasattr(self, "metadata"):
+            declaration = "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n"
             tree = ElementTree.ElementTree(self.metadata)
             f = StringIO()
             tree.write(f, encoding="utf-8")
             metadata = f.getvalue()
+            # make sure the metadata starts with the declaration
+            if not metadata.startswith(declaration):
+                metadata = declaration + metadata
             del f
         elif self.reader is not None:
             if recompressTables:
