@@ -53,6 +53,8 @@ class WOFFFont(TTFont):
         self.VIDDict = {}
         self.allowVID = allowVID
 
+        self.ignoreDecompileErrors = ignoreDecompileErrors
+
         self.flavor = flavor
         self.majorVersion = 0
         self.minorVersion = 0
