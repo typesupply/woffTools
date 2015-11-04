@@ -4,7 +4,7 @@ to manipulate and examine WOFF files just as you can examine SFNT files
 with FontTools.
 
 Dependencies
-FontTools: http://fonttools.sf.net
+FontTools: https://github.com/behdad/fonttools/
 Numpy: http://numpy.scipy.org/
 
 Installation
