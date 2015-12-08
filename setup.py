@@ -16,7 +16,7 @@ setup(
     description="A set of tools for working with WOFF files.",
     author="Tal Leming",
     author_email="tal@typesupply.com",
-    url="http://code.typesupply.com",
+    url="https://github.com/typesupply/woffTools",
     license="MIT",
     packages=[
         "",
