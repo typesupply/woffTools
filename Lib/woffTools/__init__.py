@@ -10,7 +10,7 @@ more care.
 
 import zlib
 import struct
-import sstruct
+from fontTools.misc import sstruct
 from cStringIO import StringIO
 from xml.etree import ElementTree
 from fontTools.ttLib import TTFont, debugmsg, sortedTagList
