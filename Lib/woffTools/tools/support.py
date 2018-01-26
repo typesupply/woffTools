@@ -1,7 +1,7 @@
+from fontTools.misc.py23 import *
 import os
 import time
 from xml.etree import ElementTree
-from cStringIO import StringIO
 
 # ----------------------
 # Very Simple XML Writer

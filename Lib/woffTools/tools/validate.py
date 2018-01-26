@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-
+from __future__ import print_function
 """
 A module for validating the the file structure of WOFF Files.
 *validateFont* is the only public function.
@@ -2418,7 +2418,7 @@ def validateFont(path, options, writeFile=True):
     for title, func in tests:
         # skip groups that are not specified in the options
         if options.testGroups and title not in options.testGroups:
-            continue 
+            continue
         reporter.logTestTitle(title)
         shouldStop = func(data, reporter)
         if shouldStop:
@@ -2474,17 +2474,17 @@ def main():
     options.outputFormat = "html"
     options.testGroups = None # don't expose this to the commandline. it's for testing only.
     if outputDirectory is not None and not os.path.exists(outputDirectory):
-        print "Directory does not exist:", outputDirectory
+        print("Directory does not exist: %s" % outputDirectory)
         sys.exit()
     for fontPath in args:
         if not os.path.exists(fontPath):
-            print "File does not exist:", fontPath
+            print("File does not exist: %s" % fontPath)
             sys.exit()
         else:
-            print "Testing: %s..." % fontPath
+            print("Testing: %s..." % fontPath)
             fontPath = fontPath.decode("utf-8")
             outputPath, report = validateFont(fontPath, options)
-            print "Wrote report to: %s" % outputPath
+            print("Wrote report to: %s" % outputPath)
 
 if __name__ == "__main__":
     main()

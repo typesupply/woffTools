@@ -1,3 +1,5 @@
+from __future__ import print_function
+from fontTools.misc.py23 import *
 """
 This implements the WOFF specification dated September 16, 2009.
 
@@ -11,7 +13,6 @@ more care.
 import zlib
 import struct
 from fontTools.misc import sstruct
-from cStringIO import StringIO
 from xml.etree import ElementTree
 from fontTools.ttLib import TTFont, debugmsg, sortedTagList
 from fontTools.ttLib.sfnt import getSearchRange, calcChecksum, SFNTDirectoryEntry, \
@@ -38,7 +39,7 @@ class WOFFFont(TTFont):
     set a string to font.privateData.
     """
 
-    def __init__(self, file=None, flavor="\000\001\000\000",
+    def __init__(self, file=None, flavor=b"\000\001\000\000",
         checkChecksums=0, verbose=False, recalcBBoxes=True,
         allowVID=False, ignoreDecompileErrors=False):
         # can't use the TTFont __init__ because it goes directly to the SFNTReader.
@@ -314,8 +315,8 @@ class WOFFReader(object):
             if self.checkChecksums > 1:
                 assert checksum == entry.origChecksum, "bad checksum for '%s' table" % tag
             elif checksum != entry.origChecksum:
-                print "bad checksum for '%s' table" % tag
-            print
+                print("bad checksum for '%s' table" % tag)
+            print()
         return data
 
     def getCompressedTableData(self, tag):

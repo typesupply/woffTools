@@ -23,7 +23,7 @@ except ImportError:
 
 if importErrors:
     import sys
-    print "Could not import needed module(s):", ", ".join(importErrors)
+    print("Could not import needed module(s): %s" % ", ".join(importErrors))
     sys.exit()
 
 # import
@@ -263,14 +263,14 @@ def main():
     (options, args) = parser.parse_args()
     outputDirectory = options.outputDirectory
     if outputDirectory is not None and not os.path.exists(outputDirectory):
-        print "Directory does not exist:", outputDirectory
+        print("Directory does not exist: %s" % outputDirectory)
         sys.exit()
     for fontPath in args:
         if not os.path.exists(fontPath):
-            print "File does not exist:", fontPath
+            print("File does not exist: %s" % fontPath)
             sys.exit()
         else:
-            print "Creating Info Report: %s..." % fontPath
+            print("Creating Info Report: %s..." % fontPath)
             fontPath = fontPath.decode("utf-8")
             font = WOFFFont(fontPath)
             html = reportInfo(font, fontPath)
