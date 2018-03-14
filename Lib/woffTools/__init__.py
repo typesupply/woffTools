@@ -10,7 +10,6 @@ more care.
 
 import zlib
 import struct
-from fontTools.misc import sstruct
 from cStringIO import StringIO
 from xml.etree import ElementTree
 from fontTools.ttLib import TTFont, debugmsg, sortedTagList
@@ -21,6 +20,11 @@ try:
     from fontTools.ttLib.sfnt import getSearchRange
 except ImportError:
     from fontTools.ttLib import getSearchRange
+
+try:
+    from fontTools.misc.sstruct import sstruct
+except ImportError:
+    from fontTools.misc import sstruct
 
 # -----------
 # Main Object
