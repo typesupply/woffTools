@@ -64,6 +64,7 @@ class WOFFFont(TTFont):
         self.minorVersion = 0
         self._metadata = None
         self._tableOrder = None
+        self._tableCache=None
 
         if file is not None:
             if not hasattr(file, "read"):
