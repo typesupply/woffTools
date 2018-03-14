@@ -83,7 +83,7 @@ class WOFFFont(TTFont):
             self.privateData = None
 
     def __getattr__(self, attr):
-        if attr not in ("privateData", "metadata"):
+        if attr not in ("privateData", "metadata", "lazy"):
             raise AttributeError(attr)
         # metadata
         if attr == "metadata":
@@ -106,6 +106,8 @@ class WOFFFont(TTFont):
                     privateData = self.reader.privateData
                 self.privateData = privateData
             return self.privateData
+        elif attr == "lazy":
+            return False
         # fallback to None
         return None
 
