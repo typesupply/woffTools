@@ -14,9 +14,13 @@ from fontTools.misc import sstruct
 from cStringIO import StringIO
 from xml.etree import ElementTree
 from fontTools.ttLib import TTFont, debugmsg, sortedTagList
-from fontTools.ttLib.sfnt import getSearchRange, calcChecksum, SFNTDirectoryEntry, \
+from fontTools.ttLib.sfnt import calcChecksum, SFNTDirectoryEntry, \
     sfntDirectoryFormat, sfntDirectorySize, sfntDirectoryEntryFormat, sfntDirectoryEntrySize
 
+try:
+    from fontTools.ttLib.sfnt import getSearchRange
+except ImportError:
+    from fontTools.ttLib import getSearchRange
 
 # -----------
 # Main Object
