@@ -6,8 +6,8 @@ from setuptools import setup
 try:
     import fontTools
 except:
-    print "*** Warning: woffTools requires FontTools, see:"
-    print "    fonttools.sf.net"
+    print("*** Warning: woffTools requires FontTools, see:")
+    print("    fonttools.sf.net")
 
 
 setup(
